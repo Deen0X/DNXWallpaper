@@ -353,14 +353,20 @@ bool ParseDisplays(const std::string& json, std::vector<CellSpec>& out) {
 }
 
 // Arranca un vídeo por pantalla. Devuelve true si al menos una funciona.
-bool ApplyCells(const std::vector<CellSpec>& specs) {
+// Con `withPlaylist`, cada pantalla arranca en un elemento distinto de la
+// playlist (monitor i -> items[i % n]) y luego rotan todas a la vez.
+bool ApplyCells(const std::vector<CellSpec>& specs, bool withPlaylist) {
     StopCells();
     g_video.Stop();
     g_renderer.SetBackgroundImage(L"");
+    const size_t n = g_playlist.items.size();
     bool any = false;
+    size_t mon = 0;  // índice de pantalla (aunque alguna falle)
     for (const auto& s : specs) {
         auto cell = std::make_unique<CellState>();
-        cell->file = s.file;
+        const std::wstring file =
+            (withPlaylist && n > 0) ? g_playlist.items[mon % n] : s.file;
+        cell->file = file;
         cell->x = s.x;
         cell->y = s.y;
         cell->w = s.w > 0 ? s.w : 1920;
@@ -368,14 +374,26 @@ bool ApplyCells(const std::vector<CellSpec>& specs) {
         cell->mode = FitModeFromName(s.fit);
         cell->cx = s.cx; cell->cy = s.cy; cell->cw = s.cw; cell->ch = s.ch;
         cell->video.SetMaxHeight(g_display.maxHeight);
-        if (!cell->video.StartVideoWithNewPlayer(s.file)) {
+        if (!cell->video.StartVideoWithNewPlayer(file)) {
             LogStage("displays: video FAILED (pantalla sin fondo)");
+            ++mon;
             continue;
         }
         g_cells.push_back(std::move(cell));
         any = true;
+        ++mon;
     }
     g_cellsMode = any;
+    // La marca de playlist se sincroniza siempre: al parar (o al aplicar un
+    // displays sin playlist) no debe seguir rotando.
+    g_playlist.enabled = withPlaylist && any;
+    if (any && withPlaylist) {
+        g_playlist.lastSwitch = GetTickCount();
+        char b[96];
+        sprintf_s(b, "displays: playlist por pantalla (%d elementos)",
+                  (int)n);
+        LogStage(b);
+    }
     if (any) {
         char b[96];
         sprintf_s(b, "displays: %d pantalla(s) con video propio",
@@ -384,6 +402,22 @@ bool ApplyCells(const std::vector<CellSpec>& specs) {
         WallpaperManager::Instance().ShowContent();
     }
     return any;
+}
+
+// Cambia el vídeo de una pantalla (rotación de playlist). Corte directo: sin
+// fundido por celda (el modo con fundido se compone con ffmpeg).
+void RestartCell(size_t i, const std::wstring& file) {
+    if (i >= g_cells.size()) return;
+    CellState& c = *g_cells[i];
+    if (c.file == file) return;
+    c.video.Stop();
+    c.video.SetMaxHeight(g_display.maxHeight);
+    if (!c.video.StartVideoWithNewPlayer(file)) {
+        LogStage("playlist: fallo al abrir un elemento (pantalla)");
+        c.file.clear();
+        return;
+    }
+    c.file = file;
 }
 
 }  // namespace
@@ -412,12 +446,24 @@ bool WallpaperManager::ApplySelection() {
     if (cur.empty()) {
         return false;
     }
-    // Asignación por monitor: cada pantalla con su propio vídeo.
+    // Asignación por monitor: cada pantalla con su propio vídeo. Si además
+    // `current.json` pide playlist, cada pantalla rota por la lista.
     {
         std::vector<CellSpec> specs;
         if (ParseDisplays(cur, specs) && !specs.empty()) {
+            bool plMode = false;
+            size_t pk = cur.find("\"playlist\"");
+            if (pk != std::string::npos) {
+                size_t colon = cur.find(':', pk);
+                if (colon != std::string::npos) {
+                    size_t v = cur.find_first_not_of(" \t\r\n", colon + 1);
+                    plMode = v != std::string::npos && cur[v] == 't';
+                }
+            }
+            if (plMode) LoadPlaylistConfig();
+            const bool rotate = plMode && g_playlist.items.size() >= 2;
+            if (ApplyCells(specs, rotate)) return true;
             g_playlist.enabled = false;
-            if (ApplyCells(specs)) return true;
             LogStage("apply: displays sin video valido -> se sigue con project");
         }
     }
@@ -694,6 +740,24 @@ void WallpaperManager::LoadPlaylistConfig() {
 }
 
 void WallpaperManager::UpdatePlaylist() {
+    // Playlist por pantalla: todas rotan a la vez y cada una va un elemento por
+    // delante de la anterior (monitor i = items[(index + i) % n]).
+    if (g_cellsMode) {
+        if (!g_playlist.enabled || g_playlist.items.size() < 2 ||
+            g_playlist.intervalMs == 0) {
+            return;
+        }
+        const DWORD now = GetTickCount();
+        if (now - g_playlist.lastSwitch < g_playlist.intervalMs) return;
+        const size_t n = g_playlist.items.size();
+        g_playlist.index = (g_playlist.index + 1) % n;
+        for (size_t i = 0; i < g_cells.size(); ++i) {
+            RestartCell(i, g_playlist.items[(g_playlist.index + i) % n]);
+        }
+        g_playlist.lastSwitch = now;
+        LogStage("playlist: siguiente wallpaper (pantallas)");
+        return;
+    }
     if (!g_playlist.enabled || g_playlist.items.size() < 2 ||
         g_playlist.intervalMs == 0) {
         return;
@@ -794,6 +858,9 @@ void WallpaperManager::RenderFrame() {
                                 cell.ch);
         }
         g_renderer.EndFrame(true);
+        // La rotación de playlist también corre en modo celdas (antes el
+        // return temprano se la saltaba y no avanzaba nunca).
+        UpdatePlaylist();
         return;
     }
     // Vídeo en curso: sube el último frame y lo dibuja; si no, imagen fija.

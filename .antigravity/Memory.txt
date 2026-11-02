@@ -511,3 +511,17 @@
   así que maximizar/restaurar no actualizaba el preview. Ahora
   `layoutWorkspace(list)` (sólo geometría) se llama al pintar y en `resize`
   (debounce 120 ms) + `repositionAll()`, sin recrear los medios.
+
+## Playlist por pantalla (2026-11-02)
+
+- **Rotación por celda**: con `displays[]` y `"playlist": true` en
+  `current.json`, el motor carga `res/config/playlist.json` y cada pantalla
+  empieza en `items[i % n]`; cada `intervalMs` avanza todas a la vez
+  (`items[(index + i) % n]`). Corte directo: sin fundido por celda.
+- **Importante**: el bucle de celdas de `RenderFrame` hace `return` temprano;
+  llamar a `UpdatePlaylist()` **antes** de salir o la rotación nunca avanza.
+- **`ApplyCells` sincroniza `g_playlist.enabled = withPlaylist && any`**: si no,
+  al parar la playlist (o aplicar un displays sin ella) seguía rotando.
+- **API**: `/api/playlist/activate` conserva `displays[]` y añade
+  `"playlist":true`; `/api/playlist/stop` quita la marca y mantiene las
+  pantallas asignadas.

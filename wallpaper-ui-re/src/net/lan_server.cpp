@@ -2423,7 +2423,20 @@ void Handle(SOCKET client, bool local) {
                      "{\"ok\":false,\"error\":\"playlist vacia\"}");
         } else {
             const std::wstring f = g_baseDir + L"\\res\\current.json";
-            WriteWholeFile(f, "{\"project\": \"\", \"playlist\": true}");
+            std::string existing = ReadWholeFile(f);
+            if (existing.find("\"displays\"") != std::string::npos) {
+                // Asignación por monitor: se conserva y se le añade la rotación
+                // (el motor rota cada pantalla dentro de la playlist).
+                size_t end = existing.find_last_of('}');
+                if (end != std::string::npos) {
+                    existing.insert(end, ",\"playlist\":true");
+                    WriteWholeFile(f, existing);
+                } else {
+                    WriteWholeFile(f, "{\"project\": \"\", \"playlist\": true}");
+                }
+            } else {
+                WriteWholeFile(f, "{\"project\": \"\", \"playlist\": true}");
+            }
             HANDLE ev = CreateEventW(nullptr, FALSE, FALSE,
                                      L"dnxWallpaperV3Reload");
             if (ev) {
@@ -2445,7 +2458,33 @@ void Handle(SOCKET client, bool local) {
         WritePlaylist(iv, tr, items);
         SendText(client, 200, "OK", "{\"ok\":true,\"seconds\":" + std::to_string(iv) + "}");
     } else if (path == "/api/playlist/stop") {
-        // Detener la rotación: se queda el primer elemento como fondo fijo.
+        // Detener la rotación. Si hay asignación por monitor se conserva
+        // (sólo se quita la marca de playlist); si no, queda el primer
+        // elemento como fondo fijo.
+        const std::wstring f = g_baseDir + L"\\res\\current.json";
+        std::string existing = ReadWholeFile(f);
+        auto stripFlag = [](std::string j) {
+            for (const char* pat : {",\"playlist\":true", ", \"playlist\": true",
+                                    ",\"playlist\": true", ", \"playlist\":true"}) {
+                size_t p = j.find(pat);
+                if (p != std::string::npos) {
+                    j.erase(p, strlen(pat));
+                    break;
+                }
+            }
+            return j;
+        };
+        if (existing.find("\"displays\"") != std::string::npos) {
+            WriteWholeFile(f, stripFlag(existing));
+            HANDLE ev = CreateEventW(nullptr, FALSE, FALSE,
+                                     L"dnxWallpaperV3Reload");
+            if (ev) {
+                SetEvent(ev);
+                CloseHandle(ev);
+            }
+            SendText(client, 200, "OK", "{\"ok\":true}");
+            return;
+        }
         auto items = JsonStringArray(ReadWholeFile(PlaylistFile()), "items");
         if (items.empty()) {
             SendText(client, 200, "OK", "{\"ok\":true}");
@@ -2455,7 +2494,6 @@ void Handle(SOCKET client, bool local) {
                 if (c == '\\' || c == '"') esc.push_back('\\');
                 esc.push_back(c);
             }
-            const std::wstring f = g_baseDir + L"\\res\\current.json";
             WriteWholeFile(f, "{\"project\": \"" + esc + "\"}");
             HANDLE ev = CreateEventW(nullptr, FALSE, FALSE,
                                      L"dnxWallpaperV3Reload");

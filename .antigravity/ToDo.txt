@@ -20,9 +20,11 @@ Windows y Android publicados y funcionando:
 ## Pendiente priorizado
 
 ### P1 — Escritorio
-- [ ] **Playlist por monitor**: cada celda ya tiene su decodificador; falta que
-      la rotación sea independiente por pantalla y que use los vídeos
-      optimizados (hoy rota un fichero para toda la superficie).
+- [x] **Playlist por monitor** (2026-11-02): el motor rota cada celda por la
+      playlist (`monitor i = items[(index + i) % n]`), todas a la vez y con
+      corte directo. `/api/playlist/activate` conserva `displays[]` y
+      `/api/playlist/stop` lo deja fijo sin perder la asignación. Verificado
+      con 2 celdas a 3 s: 40 → 42 rotaciones y parada limpia.
 - [ ] **Modo Mosaico** (idea): varios wallpapers en cajas dentro de una misma
       pantalla. El motor ya dibuja N vídeos en cajas (`displays[]` con
       rectángulos propios, probado con 2 vídeos en 1 monitor). Falta:
