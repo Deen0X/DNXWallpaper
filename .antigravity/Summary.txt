@@ -1,5 +1,10 @@
 ## Sesión 2026-11-02: la descarga la hace el plugin
 
+- **Playlist por monitor**: con `displays[]` + `"playlist": true`, cada
+  pantalla rota por la lista (`items[(index + i) % n]`) con corte directo.
+  `activate` conserva la asignación y `stop` la deja fija. Verificado a 3 s
+  (40 → 42 rotaciones y parada limpia). El bucle de celdas hacía `return`
+  antes de `UpdatePlaylist`, así que no avanzaba nunca.
 - **`fetch` del plugin como mecanismo de descarga**: `FetchRemoteMediaSync`
   pide el medio al plugin (`fetch --id --out`) y la descarga HTTP directa queda
   como respaldo. La vista previa animada usa `fetch --kind preview` en lugar de
