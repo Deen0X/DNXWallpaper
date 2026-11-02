@@ -1,0 +1,7 @@
+/* main.css externo (res/ui_skel/styles/). El index.html lo carga por
+   ?skinStyle= y muestra <html> en onload (patrón del original). */
+html { background: #141416; color: #e6e6e6; font-family: "Segoe UI", sans-serif; }
+body { margin: 40px; }
+h1 { color: #e85a10; }
+#status { margin-top: 20px; padding: 12px; background: #1e1e22;
+          border-left: 4px solid #e85a10; }

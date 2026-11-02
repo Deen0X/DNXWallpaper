@@ -1,0 +1,6 @@
+{
+  "_comment": "Carpetas externas de videos/imagenes que aparecen en la galeria. Se escanean al arrancar y generan miniaturas reales en res/cache/thumbs.",
+  "folders": [
+    "D:\\Users\\DNX\\Videos\\Wallpaper"
+  ]
+}

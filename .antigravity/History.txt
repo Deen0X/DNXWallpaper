@@ -1,0 +1,490 @@
+## Sesión 2026-10-30 (2): catálogo visor, optimizador y modos
+
+- **Catálogo = visor**: pulsar abre una ventana con el vídeo en grande,
+  metadatos y acciones (usar en pantalla / adaptar a dispositivo). Ya no
+  aplica nada.
+- **Selector de wallpaper** con filtros (todo/vídeo/imagen/vertical), lista de
+  plugins y buscador.
+- **Aplicar**: elegir deja una propuesta; nada cambia hasta pulsar Aplicar.
+- **Optimizar**: ventana con arrastre y rueda (proporción real del monitor),
+  fundido, recorte del original y escalado a la pantalla; el resultado entra
+  al catálogo como `optimized:*` y se aplica. Medido: 32,2 → 14,9 MB.
+- **Modos** con 3 iconos por botón y ✕ para quitar el fondo de un monitor.
+- **Bug de ffmpeg**: el commit del sistema estaba agotado (emulador Android
+  abierto). Se añadieron flags de memoria, proxy 1080p y detalle del error.
+## Sesión 2026-10-29 (4): preview animado y recortes en su sitio
+
+- **Export**: `/api/editor/export` descarga el medio si el item remoto aún no
+  está en disco. Antes devolvía `source` ("No se pudo iniciar la exportación")
+  y el usuario tenía que descargar primero.
+- **Preview animado**: la ficha remota usa `AnimatedThumb` (ImageDecoder +
+  AnimatedImageDrawable sobre el WebP animado); la ficha local usa ExoPlayer
+  en bucle (TextureView, sin sonido).
+- **Recortes**: `LocalStore.replaceOrImport` actualiza en su sitio el item con
+  el mismo `sourceKey` (regenera miniatura) en vez de añadir copias; los
+  duplicados antiguos se limpian al listar.
+- Verificado en emulador: previews animados (frames distintos), lista sin
+  duplicados, export de item no descargado (`state: done`, 1080x1214).
+
+## Sesión 2026-10-29 (3): plugins v2 integrados
+
+- Los 9 plugins migrados (Python, contrato v2) sustituyen a los `.ps1`.
+- Host: `runtime: "python"`, `--cache-dir` por plugin, invalidación de caché
+  por versión, respaldo de `fetch` y `thumb` al plugin cuando la descarga
+  directa falla (CDN con 403).
+- Catálogo: 5.305 items; miniaturas 60/60; aplicar verificado en pixabay,
+  wikimedia y wallhaven.
+- Pixabay activo con API key.
+- Migración: hubo que limpiar `res/cache/catalog.json` y `res/cache/plugins/*`
+  porque los ids de v1 se mezclaban con los de v2.
+
+## Sesión 2026-10-29 (2): arquitectura de servicio + conexión
+
+Brainstorming cerrado. Decisiones de arquitectura registradas en
+`docs/service-architecture-analysis.md` (§11-13) y plan en
+`docs/implementation-plan.md`.
+- **Aplicar desde la web**: `/api/monitors`, `/api/apply?key=` y
+  `/api/current`. Verificado: aplicar desde `/ui2/` escribe
+  `res/current.json` y el motor responde `apply: video OK`.
+- **TCloud**: el servidor nuevo responde pero rechaza la clave
+  (`api key desconocida o revocada`), también la antigua. Hay que
+  generar/copiar la clave en la consola `http://192.168.88.115:8931/`.
+
+- **Contrato del servidor**: `/api/info` devuelve `product:dnxwallpaper`,
+  `instanceId`, `port` e `interfaces`; nuevo `/api/net/interfaces`. La firma
+  permite distinguir nuestro servidor de otro servicio.
+- **Puerto**: si `8477` está ocupado se prueba `+1..+30` y se **persiste** en
+  `res/config/server.json`. Se usa `SO_EXCLUSIVEADDRUSE` porque en Windows
+  `SO_REUSEADDR` deja que dos procesos escuchen el mismo puerto.
+- **UI nueva `/ui2/`**: sección **Conexión** con checkboxes de interfaces y QR
+  (una URL o JSON `{product, urls}`), contador de catálogo y placeholder para
+  items sin miniatura.
+- **TCloud**: servidor dedicado nuevo en `http://192.168.88.115:8931`
+  (misma clave). APK msg 28 subida antes del cambio.
+- **Decisiones**: Docker = artefacto de despliegue (no runtime); plugins
+  locales desaparecen (el cliente sube ficheros); salidas 0/1/2 (imagen /
+  imagen animada WebP-APNG / vídeo); transcode distribuido aparcado a favor de
+  la cache por (fuente, params).
+
+## Sesión 2026-10-29: plugins + rediseño de interfaz (prototipo)
+
+- **Plugins**: se pide `--sort newest`; caché en disco por plugin+página
+  (`res/cache/plugins/<id>/pN.json`, TTL 24 h en `plugins.json`); la página 1
+  siempre se refresca. Se eliminan del catálogo los items de plugins
+  deshabilitados (`PruneProviders`).
+- **Plugin Local** nuevo (`dist/plugins/local`): escanea carpetas configuradas
+  (recursivo, vídeo e imagen, sin límite), miniaturas con ffmpeg y caché,
+  paginación real (`--page/--limit`), configuración con ventana de carpetas.
+  Sustituye al `mock` (deshabilitado).
+- **App Android**: vídeo local → PC (`POST /api/upload` en streaming + probe +
+  póster; export con `key="up:<id>"`), hoja de acciones del catálogo local,
+  pestañas con iconos, color de bandas “Custom”, resolución objetivo en el
+  editor y tope de 4 MB.
+- **Interfaz nueva (prototipo)**: `dist/res/dnxui` servida en `/ui2/`, barra
+  lateral con secciones (Pantallas, Catálogo, Herramientas, Salvapantallas,
+  Playlist, Acerca de) y catálogo como ventana modal reutilizable. Entrada en
+  la bandeja: “Interfaz nueva (beta)”.
+- Backup previo: `backups/2026-10-29_pre-ui-redesign/`.
+- Pendiente: exponer monitores/salvapantallas/playlist por HTTP para que la
+  interfaz nueva sea funcional; TCloud no completó las subidas (se quedó al 0 %).
+
+## Sesión 2026-10-28: Fase 1 (hito 1) — editor y /m
+
+- `editor_export`: probe, export con crop/escala/HDR→SDR/fade A, progreso,
+  cancelación y póster. Salida en `res/mobile/<id>.mp4/.jpg/.json`.
+- API `/api/editor/*` y `/m/<id>` + `/api/mobile/<id>` con Range.
+- Página `dist/res/editor/` (viewport, aspect, resolución, calidad, fade,
+  perfiles, QR) servida por la app; probada con una exportación 332×720
+  (0,8 MB, 10 s).
+- App Android: soporte `/m/` y filtro de intent; probado en emulador.
+- APK msg 13/14: https://t.me/c/4423392613/8/13 · /8/14
+- El selector de fondos animados usaba `resolveActivity`, que en Android 11+
+  da falso negativo por package visibility; se elimina y se captura la
+  excepción. Probado: el picker abre.
+- APK msg 15: error de red detallado (HTTP, timeout, conexión) y regla de
+  firewall TCP 8477 privada.
+- **Validado por el usuario**: editor → QR → app → aplicar fondo.
+- Bandeja: "Adaptar a dispositivo…" abre el editor con el fondo actual
+  (`?file=`); `tools.json` creado.
+- Editor: pestañas Configurar / Vídeo generado; QR en la pestaña de resultado;
+  layout de altura fija.
+- App: botón "Quitar fondo" (`WallpaperManager.clear` + bitmap estático de
+  respaldo si sigue activo un fondo animado); APK msg 16 y msg 17.
+- App: "Fondo anterior" (Guardar actual / Restaurar) con `prev_video.mp4` y,
+  en Android <= 12, `prev_static.png`). En 13+ "Guardar actual" pide elegir
+  la imagen del fondo; se restaura la copia más reciente. APK msg 19.
+- Hecho: host EXE del editor (`device-editor.exe`).
+- UI principal: el botón de móvil abre el editor (`openDeviceEditor`), sin
+  el aviso "Installation Incomplete".
+- App: biblioteca del PC (24/página, miniaturas, toque = ficha). APK
+  msg 20.
+- Descubrimiento UDP 7884 (`WPX/Ping`) + botón "Buscar PC" en la app;
+  APK msg 21.
+- **Rediseño de la app** (APK msg 22): pestañas Wallpapers / Mi fondo /
+  Ajustes, tema oscuro, filtros y hoja de detalle con "versión móvil".
+- Iconos centralizados en `resources/` + `tools/sync_icons.py` (EXE,
+  bandeja, editor y APK).
+- **Rediseño v2** (APK msg 23): catálogo local con favoritos y borrado,
+  catálogo remoto que descarga a local, y **editor de encuadre** en el
+  móvil (viewport = pantalla, bandas con color, tope de tamaño por
+  bitrate). Icono de la ventana principal arreglado.
+- Pendiente: pulido  (cuadrado/imán/perfiles) y Fase 2 (biblioteca del móvil).
+
+## Sesión 2026-10-28: TCloud, Wallsflow y APK sin cámara
+
+- **Wallsflow**: plugin dirty en `dist/plugins/wallsflow` (scraper HTML con
+  cache). 600 ítems en el catálogo; `/api/item` y `/api/thumb` OK. El `fetch`
+  solo obtiene el preview 720p/10s; el 4K está detrás de Cloudflare/login.
+- **APK sin cámara**: campo URL + botón `Pegar URL`; cámara no requerida
+  (`uses-feature-not-required`). APK 12,92 MB probada en emulador.
+- **TCloud**: credenciales en `.tcloud.env` (gitignored), scripts en `tools/`,
+  comando `/upload-apk` y skill `tcloud-upload`. APK debug subida al tema 8:
+  msg_id 10, https://t.me/c/4423392613/8/10.
+- **APK**: botón `Elegir vídeo del dispositivo` (SAF), descarga con error
+  detallado y timeout de 300 s; FydeOS/ChromeOS se detecta y avisa sin
+  crash. Subidas msg 11 y 12.
+- Siguiente: probar el APK en la máquina sin cámara y arrancar la Fase 1
+  (editor de dispositivos).
+
+## Sesión 2026-10-28: Fase 0 completada (DNXWallpaper v3)
+
+- Renombrado visible e interno: `DNXWallpaper.exe`, `DNXWallpaper.Motor.exe`,
+  `DNXWallpaper.UI.exe`, log `dnxwallpaper.log`, mutex/eventos/clases
+  `dnxWallpaperV3*`, locales, scripts y app Android. Exes viejos fuera de
+  `dist`.
+- UI: título sin Steam, icono de Plugins (plug), editor oculto y bridge
+  `editorObject` eliminado; textos visibles neutralizados. El bundle Angular y
+  los métodos/shims internos de Steam quedan para la Fase 3.3.
+- Snapshot del catálogo: 4.719 ítems (~3,7 MB); `/api/library` y `/api/info`
+  instantáneos en arranque en frío.
+- GL: ExoPlayer → SurfaceTexture → EGL/GLES; `cover`/`fit`/`stretch`; probado en
+  emulador (cover sin deformar, fit con bandas); APK 12,92 MB.
+- Proxy `?m=1`: HEAD no genera (409); job asíncrono con progreso y cancelación;
+  probado 38,2 MB → 8,7 MB y cancelación limpia.
+- Firewall privado para `DNXWallpaper.UI.exe` (8477).
+- Siguiente: Fase 1, editor de dispositivos.
+
+# Historial de Sesiones Anteriores
+
+> Rotacion: cuando `Summary.txt` supere 3 sesiones, mover la mas antigua aqui.
+
+## Sesión 2026-10-28: brainstorming v3 (UI, plugins y companion)
+
+- Producto renombrado a **DNXWallpaper v3**; se eliminarán todas las
+  referencias a Steam/Workshop/DLC/EULA. La eliminación real del bundle
+  original llega con la UI nueva; hasta entonces se retiran métodos/shims y se
+  oculta lo que dependa del Angular viejo.
+- UI: reescritura por fases (Svelte + Vite + TS, DNX UI Style, sidebar +
+  Settings Cards, Lucide, Mica). Secciones: Inicio, Biblioteca, Descubrir,
+  Reproducción, Pantallas, Plugins, Extras, Herramientas, Ajustes.
+- Biblioteca = plugin local; plugins `catalog` (CLI), `wallpaper`
+  (nativo/helper) y `extras` (datos + widgets); configuración por formulario.
+- Web: helper CEF, sin YouTube. Application: plugin WGC (candidato). Extras:
+  overlays con ping/RTSS/HWiNFO/CPU/GPU/now playing. Telegram: cuando el
+  servicio esté listo.
+- Companion: editor de dispositivos externo (EXE + dxcore + tools.json);
+  `/m/<id>`; cover por defecto, stretch opcional; target lado corto; cuadrado
+  opcional; fade A; app biblioteca/subida/GL; minSdk 26.
+- Escritorio: propiedades por wallpaper, multi-monitor (clone/span/independent)
+  y screensaver integrado.
+- Descartados: audio reactivo, presets, captura, play-in-window y escenas
+  runtime.
+- Plan: `docs/implementation-plan.md` reescrito; nuevos `docs/ui-redesign.md`,
+  `docs/device-editor.md` y `docs/steam-audit.md`; `docs/companion-plan.md` y
+  `docs/plugin-contract-v1.md` actualizados.
+- Siguiente: Fase 0 (rename/auditoría, snapshot, GL renderer de la app).
+
+## Sesion 2026-10-28 (cierre): fondo animado OK
+
+- Confirmado por el usuario: el wallpaper animado se aplica y se mueve.
+- Pendiente manana: **proporcion**. El video 16:9 se estira a pantalla
+  vertical. Plan: recortar en el PC con ffmpeg segun el aspecto del movil
+  (`?m=1&ar=1080x1920` -> scale+crop) o usar PlayerView con resize_mode
+  zoom en el servicio.
+
+## Sesion 2026-10-28 (2): ExoPlayer y QR universal
+
+- **QR con cualquier escaner**: intent-filter http(s) con `pathPrefix="/dl/"` para que Android ofrezca «Abrir con DNX Wallpaper». Si el navegador esta como predeterminado para http, hay que borrarlo.
+- **Fondo animado**: MediaPlayer -> **ExoPlayer (media3 1.4.1)** (`setVideoSurface`, repeat ONE, volumen 0). MediaPlayer dejaba negro el WallpaperService en varios dispositivos.
+- APK: 12,9 MB (antes 8,7 por media3).
+
+## Sesión YYYY-MM-DD: Inicializacion del Proyecto
+- Entorno de workflow creado.
+
+## Sesión 2026-10-25: Inicialización + REA
+
+- Bootstrap y contexto inicial; instalación de REA y de Node 24.22.1.
+- Análisis de la UI (AngularJS) y del bridge CEF (`wpx.internal`).
+
+## Sesión 2026-10-26: Motor con vídeo detrás de iconos + galería local
+
+- **Hito**: el fondo animado se renderiza DETRÁS de los iconos (verificado
+  por el usuario con un vídeo propio). Clave: ventana `WS_CHILD` del WorkerW
+  de fondo + **DirectComposition** (`CreateSwapChainForComposition`).
+- Vídeo con Media Foundation (`ENABLE_ADVANCED_VIDEO_PROCESSING` → RGB32),
+  hilo lector con bucle, textura dinámica D3D11, quad fullscreen `cover`.
+- Imágenes con WIC; selección persistida en `res/current.json` + evento
+  `cxWallpaperEngineReload` (restaura al arrancar).
+- Galería: 42 vídeos de `D:\Users\DNX\Videos\Wallpaper` con miniaturas
+  reales (`IShellItemImageFactory` + WIC) desde `res/config/video_sources.json`.
+- "Descubrir" local (sin Steam): inyección de `updateWallpapers` con el
+  catálogo propio al activar la pestaña.
+- "Open Wallpaper" importa archivos al proyecto; bridge completo con stubs.
+- Corregido: launcher que abría UI sin CEF (build silencioso fallido),
+  mutex global del WE original, escapado de rutas, UIPI (no elevar).
+- Pendiente: preview animada en la UI (implementada, sin validar), editor
+  real, escenas 3D, playlist, ajustes persistentes.
+
+## Sesión 2026-10-26 (tarde): UI multimedia + systray + iconos
+
+- Miniaturas y preview **animadas** en la UI: se genera WebP animado con
+  ffmpeg (`res/cache/thumbs/*.webp`) y se usa como `preview/previewsmall`.
+- Reproducción `<video>` en la UI: handler propio con **Range/206** y MIME
+  correcto (`core/file_resource_handler.*`); antes fallaba (error 4 / negro).
+- Overlay "Connecting to Steam" eliminado de forma continua (intervalo que
+  apaga `osProviderIsConnecting`).
+- Menú del systray ampliado: Abrir / Cambiar fondo / Carpeta / Config / Salir.
+- **Iconos editables** en `assets/icons/*.png` + `tools/make-icons.py`
+  (genera .ico) y `res/*.rc` embebidos en los tres EXE.
+- Análisis de proveedores online: sin API pública; ver `dist/docs/providers.md`
+  (recomendado: carpeta local o feed JSON propio; evitar scraping masivo).
+
+## Sesión 2026-10-26 (noche): playlist, ajustes y pulido
+
+- **Playlist** con crossfade: `res/config/playlist.json`
+  (intervalSeconds, transitionSeconds, items) + shader de transición.
+  Verificado: cambia cada 45 s con snapshot del frame anterior.
+- **Ajustes persistentes**: settings.json, autoarranque en HKCU\...\Run,
+  reset, portapapeles (copiar/pegar) vía host nativo.
+- Servidor de archivos CEF con Range/206 (vídeo en UI) y logs reducidos.
+- Iconos editables/embebidos ya cerrados; menú de bandeja documentado.
+- Estado del escritorio: reproduciendo vídeo 1920x1080 en bucle.
+
+## Sesión 2026-10-26 (cierre): pestaña Plugins funcional sin Steam
+
+- **Causa raíz**: la pestaña Workshop original llama a V.setListSource('workshop'),
+  que tiene un guard if(!j()) return H.showSteamError() (sin Steam no cambia).
+- **Solución**: la inyección JS envuelve setListSource: para workshop replica
+  el estado (source/sourceIsWorkshop/sourceIsExplore/sourceIsInstalled,
+  pagination) y deja que We() pinte queryWallpapers. installed sigue
+  usando la función original.
+- Selector de plugin (#wpxPlugSel) a la izquierda del buscador; filtra por
+  provider y reescribe el catálogo.
+- Corregido polling: getRemoteItems solo si vacío o >120 s (antes 290 KB/2.5 s).
+- uild_wui.cmd ahora copia el EXE a dist (el fallo de despliegue venía de
+  un EXE en ejecución bloqueando la copia).
+- Verificado con capturas: Plugins → 786 remotos + selector; Installed → 42 locales.
+
+## Sesión 2026-10-26 (noche-2): descarga remota y miniaturas locales
+
+- **Miniaturas**: caché local en `res/cache/thumbs/remote/<plugin>/`
+  (240 estáticas + 120 animadas/arranque, 4 hilos, WinHTTP). Las animadas
+  (`animatedUrl` mp4/webm) se convierten a WebP animado con ffmpeg. La UI usa
+  `previewsmall` animado sólo si ya es local (wpx.internal).
+- **Descarga real**: OK y doble clic funcionan. Doble clic → `callbackOk(true)`
+  → `ui.subscribeWorkshopItem(array)` (el bridge ahora serializa arrays) →
+  `StartRemoteDownload`. Si el archivo ya existe, se aplica sin re-descargar.
+- **Progreso nativo**: el ítem pasa a `status:"downloading"` con
+  `downloadpercent/downloadlabel`; la UI dibuja su radial original; al acabar
+  queda `installed` y el motor aplica el vídeo.
+- **Rendimiento**: nuevo `getRemoteVersion` + debounce 3 s y no refrescar en
+  Instalados; tiempo real de `plugin fetch` medido 2-4 s para ~5 MB.
+- Verificado con autotest (lively 40 MB y moewalls): current.json y
+  `apply: video OK`; capturas de Plugins con thumbs cargadas.
+
+## Sesión 2026-10-27: Fases 0–2 (catálogo, shell y escritorio)
+
+- **Fase 0**: descargas concurrentes (máx. 3) con barra por miniatura;
+  filtros con etiquetas y filtrado cliente; metadatos en preview; ocultos los
+  bloques Steam; overlay de carga; preview animado (WebP); fallback waifu.
+- **Fase 1**: menú de bandeja completo + clic izq/doble clic; Settings real;
+  MiniMode; recientes; captura de pantalla; silenciar/pausar.
+- **Fase 2**: modos fill/fit/stretch en shader + recarga en caliente; editor de
+  playlist (añadir/quitar/reordenar/intervalo/transición/activar/detener) y
+  reset de rotación al aplicar manual; motor cubre el escritorio virtual.
+- Verificado: playlist activa (`playlist: activada` + vídeo aplicado), Settings
+  y Editor de playlist renderizan, metadatos y filtros legibles.
+- Limitaciones: barra de descarga pendiente de captura con archivo nuevo;
+  asignación por monitor pendiente; hover de vídeo pendiente.
+
+## Sesión 2026-10-27 (tarde): estabilidad del renderer y fallos de descarga
+
+- **Fallo 3 (wikimedia/wallhaven)**: la descarga HTTP no enviaba `User-Agent`
+  (403) y las URLs con bytes no ASCII se convertían mal a UTF-16. Ahora usa
+  cabeceras de navegador, descompresión, descarga atómica `.part`+rename y
+  percent-encoding de bytes >= 0x80. Verificado: 10,6 MB y 459 KB.
+- **Fallo 4 (pantalla blanca)**: tres causas raíz independientes:
+  1) carrera de 9 hilos escribiendo el global `g_remoteItems` (corrupción de
+     heap 0xC0000374) -> eliminado el global, todo pasa por copia con mutex;
+  2) `sprintf_s` desbordado en `GetDownloadStatusJson` -> `__fastfail`
+     (por eso no pasaba por el VEH) -> reescrito sin buffer fijo;
+  3) `logDebug` respondía con `logDebugCallback` inexistente -> onerror ->
+     logDebug -> bucle infinito. Callback no-op + dedupe.
+  Además aplicar/miniatura ya no se ejecutan con `g_dlMutex` tomado.
+  Medido: de 6-10 muertes/2 min a 0 en pruebas de 70-100 s.
+- **Fallo 5 (miniaturas)**: `GenerateThumbFromMedia` -> vídeo WebP animado
+  320 px / imagen WebP estático 640 px; descarta restos de 0 bytes.
+  Verificado: 317 KB (vídeo), 18,9/35,4 KB (imagen).
+- **Bug extra vídeo -> imagen**: el renderer seguía pintando el último frame
+  del vídeo (`vidSRV_` no se liberaba). Nuevo `ClearVideoFrame()` llamado
+  desde `RenderFrame()`; verificado en escritorio.
+- **Combo "Ajuste de imagen"**: se cerraba al instante porque `syncPreview()`
+  reescribía el HTML cada 800 ms. Ahora sólo se reconstruye al cambiar de
+  selección; los datos dinámicos se actualizan por texto. Verificado: el
+  desplegable permanece abierto y `playback.json` = `{"mode":"fit"}`.
+- **Limpieza**: log de ~1000 líneas a 13 por arranque (traza V8 sólo con
+  `WALLPX_V8LOG=1`); sin sondeos HTTP de miniaturas locales `wpx.internal`;
+  VEH sólo registra fallos reales y etiqueta `role=browser|renderer`.
+- **Lista de verificación**: `docs/verificacion-pendiente.md`.
+
+## Sesión 2026-10-27 (tarde-2): filtros sin Steam, Properties y Fase 4
+
+- **Punto 2 (Steam al filtrar)**: al cambiar un filtro la UI llama a
+  `queryWorkshop` contra el servidor; sin Steam fallaba y mostraba el modal
+  *Steam Services Unavailable* y luego la página de error con Reload. Ahora se
+  intercepta `browseWallpaperObject.queryWorkshop` y se responde en local con
+  el catálogo ya filtrado (`{token,isbackup,pagecount,wallpapers}`); además se
+  fuerza `hasShownSteamServiceError`. Verificado filtrando por 2560x1440.
+- **Punto 7 (Properties/Presets)**: el bloque es `.browseWallpaperDetailsProperties`
+  (properties + presets + móvil) y `.browseWallpaperDetailsWorkshopControls`
+  (Unsubscribe). Se ocultan con una hoja de estilo permanente (`wpxHideCss`)
+  porque Angular los recrea en cada digest y borrarlos producía parpadeo.
+  Ojo: `document.documentElement` es null en `OnContextCreated`, la inyección
+  debe ser tolerante (try/catch + intervalo).
+- **Fase 4 completada**: calidad = tope de decodificación en Media Foundation
+  (`MF_MT_FRAME_SIZE` sobre la salida RGB32; low 720p, medium 1080p, auto
+  nativa) con recarga en caliente al cambiar `optimizations.json`;
+  HDR = swapchain `R16G16B16A16_FLOAT` + `DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020`
+  cuando `IDXGIOutput6::GetDesc1().ColorSpace` es HDR, con conversión
+  sRGB→Rec.2020→PQ en ambos shaders (blanco SDR 203 nits) y captura de
+  pantalla que deshace PQ. Controles nuevos en Ajustes > Rendimiento.
+- Verificado: `video: calidad 3840x2160 -> 1280x720` y `-> 1920x1080` tras
+  cambiar a medium en caliente; `render: SDR (8-bit)` en este equipo (monitor
+  no HDR): falta validar HDR en hardware real.
+- **Procesos plugin.exe huérfanos**: job object con `KILL_ON_JOB_CLOSE`.
+
+## Sesión 2026-10-27 (tarde-3): incidencias de uso
+
+- **Playlist**: `Configure` estaba deshabilitado con la lista vacía y
+  `+ Add wallpaper` añadía el ítem remoto (`wpxr:`), que el motor no reproduce.
+  Ahora `callbackToggleAllWallpapersInCurrentMonitorPlaylist` se sustituye y
+  guarda la **ruta local** en `playlist.json`.
+- **Buscador**: debounce de 250 ms (antes re-renderizaba miles de tarjetas en
+  cada tecla y el texto se pintaba mal).
+- **Filtros**: si hay casillas marcadas, solo pasan esas resoluciones/tipos.
+- **Catálogo**: `maxItemsPerPlugin` (def. 600) en `res/config/plugins.json`;
+  1.580 → 4.553 ítems. El contrato ya soporta paginación (100/página).
+- **Mini modo** (3 causas): el bridge no invocaba `toggleMiniModeCallback`
+  (la promesa no resolvía y `$a` quedaba bloqueado), el resize se hacía desde
+  el proceso **renderer** (no aplica a la ventana del browser) y el botón no
+  llegaba al bridge. Solución: mensaje CEF `wpx-mini` al proceso browser, que
+  redimensiona 560×780 y restaura 1440×830; además se aplica la clase CSS.
+- **Preview animado**: `EnsureRemoteThumbAsync(key)` al seleccionar un ítem.
+- Verificado: mini 560×780 y vuelta a 1440×830, catálogo 4.553, 0 caídas.
+
+## Sesión 2026-10-27 (tarde-4): análisis del APK companion
+
+- Descargado **jadx 1.5.1** (no había decompilador; el de `D:\Tools` era solo
+  el jar del MCP) y decompilado `appcompanion/base.apk` en
+  `D:\Temp\opencode\apk_src`.
+- **Hallazgo**: la companion **no es un mando**: es el motor WE completo en
+  Android (materials/shaders/models + 9 `.mpkg`), 93,9 MB descomprimidos, sin
+  `.so` propios (GL desde Kotlin).
+- **Protocolo reconstruido** (`weutil/TcpClient`):
+  descubrimiento UDP multicast 7884 / 239.100.0.1 con datagrama
+  `WallpaperEngine/Ping:<puerto>:<nombre>:<ver>:<guid>`; TCP; el servidor
+  envía módulo+exponente RSA; el cliente manda RSA-OAEP(deviceUUID),
+  RSA-OAEP(IV 16 B) y RSA-OAEP(clave AES); después todo es
+  AES/CBC/PKCS5 + GSON con longitud prefijada (≤4096 comandos, ≤1 MB datos);
+  `EncAuthRequest{pin,name,deviceUserName,displayWidth,displayHeight,
+  version:4,mpkgVersion:"PKGM0020",appVersion}` → `EncAuthResponse{status:"AuthOK"}`;
+  `heartbeat\n` cada ~3 s; transferencia por `DownloadInfo` + rangos; el móvil
+  fija (pinning) la clave pública del PC tras el emparejamiento por PIN.
+- **Recomendación**: **no clonar** el protocolo (ata a la versión 4 y espera
+  `.mpkg`); hacer **companion propia** con contrato HTTP/WS + PIN/token
+  (~10 días). Informe: `docs/companion-apk-analisis.md`.
+
+## Sesión 2026-10-27 (noche): mini modo y descargas previas
+
+- **Mini modo**: se ocultan los botones de ventana de la UI
+  (`titlebarBtn windowButton/closeButton`) y se deja sólo `>>`; ventana
+  420×820 con el panel de detalle a todo el ancho (antes quedaba hueco y se
+  duplicaban minimizar/maximizar/cerrar con la barra nativa).
+- **Descargas previas**: el catálogo comprueba `res/providers/<plugin>/media/`
+  y emite `status:"installed"` + `localpath`; `localPathOf()` lo usa. Con eso
+  "Add wallpaper" funciona sin volver a aplicar el wallpaper.
+- **Miniaturas**: al arrancar se registran los `.thumb.webp` existentes y
+  `ensureThumb(key)` genera las que faltan para los 16 primeros visibles
+  (máx. 3 a la vez).
+- **Limpieza**: retirados `WALLPX_MINITEST`, `WALLPX_NOUIJS`, `WALLPX_V8LOG` y
+  los logs `[mini]`; el VEH queda detrás de `WALLPX_CRASHLOG=1`.
+- **Android**: decisión de app propia, sin cuentas, con QR + deep link
+  `dnxwallpaper://` y descarga directa de mp4/jpg (sin formato propio).
+
+## Sesión 2026-10-27 (noche-2): servidor LAN + app Android
+
+- **Plan**: `docs/companion-plan.md` (contrato HTTP, pantallas, fases F1-F6,
+  seguridad, compilación).
+- **F1 implementado y verificado**: `src/net/lan_server.{h,cpp}` — HTTP en
+  `0.0.0.0:8477` con `/api/info`, `/api/library?offset&limit`,
+  `/api/thumb/<key>` y `/dl/<key>` (Range + Content-Disposition, sirve el
+  **mp4/jpg original**). Config `res/config/mobile.json`
+  (`enabled/port/token`). Verificado con `Invoke-WebRequest`: 200 con
+  1.984.520 B y 206 con `Content-Range` al pedir 0-99.
+- **Detalle importante**: el servidor debe arrancar en el proceso **renderer**
+  (ahí vive `g_registry`); en el browser el catálogo está vacío.
+- **App Android**: `appcompanion/DnxCompanion` (Kotlin + Compose, minSdk 26):
+  escanear QR (zxing), comprobar URL (HEAD), descargar con DownloadManager,
+  establecer fondo (imágenes), deep link `dnxwallpaper://open?u=`.
+  **No compilada aquí**: no hay SDK de Android en la máquina.
+- Nueva API pública en `plugin_host`: `RemoteMediaPath`, `RemoteThumbPath`.
+
+## Sesión 2026-10-27 (noche-3): APK compilada con fondo animado
+
+- **SDK localizado en `D:\Tools`** (android-sdk con platform 36 + build-tools
+  35/36 + adb, gradle 8.14.6, JDK21): la APK **se compila en esta máquina**.
+- **Fondo animado en Android**: `VideoWallpaperService` (WallpaperService) que
+  reproduce `filesDir/current.mp4` en bucle y silenciado; se asigna con
+  `WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER`. La app descarga el vídeo
+  desde el PC y lanza el diálogo del sistema.
+- **APK**: `appcompanion/DnxCompanion/app/build/outputs/apk/debug/app-debug.apk`
+  (9,1 MB, minSdk 26, targetSdk 36). Verificado con aapt2: deep link
+  `dnxwallpaper`, servicio `android.service.wallpaper.WallpaperService` y
+  `CaptureActivity` de zxing.
+- Para compilar hubo que recortar memoria (`-Xmx1100m`, workers 1, Kotlin
+  in-process) por el poco *commit* del equipo.
+
+## Sesión 2026-10-27 (noche-4): QR en el preview
+
+- **QR en el panel de metadatos**: sección "Enviar al móvil" con el código
+  (`qrcode.min.js`, MIT, en `dist/ui/dist/scripts/`) y la URL en texto.
+  La URL sale de `getLanInfo` (nuevo método del bridge) que devuelve IP local,
+  puerto y estado del servidor (`LanInfoJson`, con `GetAdaptersAddresses`).
+- **Descarga bajo demanda**: `/dl/<key>` ahora, si el medio no está en disco,
+  lo descarga (`FetchRemoteMediaSync`, 120 s) y lo sirve. Así el QR funciona
+  aunque el wallpaper no se haya aplicado nunca. Verificado: 200 con
+  `video/mp4` de 23,5 MB para `lively:2b-blindfold`.
+- Un ítem con muchas etiquetas empuja el QR por debajo del pliegue del panel:
+  hay que desplazar el panel derecho para verlo.
+
+## Sesión 2026-10-28: companion (vertical, 1080p)
+
+- **Escáner en vertical**: PortraitCaptureActivity (fullSensor) y
+  captureActivity en ScanOptions; antes la librería forzaba landscape.
+- **Fondo negro**: el vídeo era H.264 **4K 11 Mbps**; el WallpaperService no
+  puede con él. Nuevo EnsureMobileProxy en el escritorio: genera
+  <medio>.1080.mp4 (ffmpeg, 1080p H.264 ~5 MB) y /dl/<key>?m=1 lo sirve.
+  Verificado: 22,5 MB -> 4,92 MB.
+- **Servicio**: setDisplay, prepareAsync, VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+  y reintento al volver a ser visible.
+- **Flujo app**: al escanear se piden metadatos (/api/item) y se muestra la
+  miniatura; un solo botón descarga con progreso y aplica.
+
+
+## Sesión 2026-10-30: UI nueva como ventana principal
+
+- Playlist y salvapantallas ya persisten (playlist en el formato del motor).
+- Sección **Plugins** en la UI con activar/desactivar.
+- La ventana principal carga `/ui2/`. El servidor pasa al proceso de navegador:
+  en el renderer moría al navegar y la ventana quedaba sin JS.
+- Interruptor `res/config/ui.json` (`new`/`classic`).

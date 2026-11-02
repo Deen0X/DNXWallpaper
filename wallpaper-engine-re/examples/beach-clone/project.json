@@ -1,0 +1,22 @@
+{
+	"file" : "scene.json",
+	"authorsteamid": "76561197975619619",
+	"preview" : "preview.jpg",
+	"title" : "Beach (clone reconstruido)",
+	"description" : "Replica del formato project.json documentado mediante ingenieria inversa con REA.",
+	"type" : "scene",
+	"visibility" : "public",
+	"official" : false,
+	"general" :
+	{
+		"properties" :
+		{
+			"schemecolor" :
+			{
+				"text" : "ui_browse_properties_scheme_color",
+				"type" : "color",
+				"value" : "1 0.8 0.20784313725490197"
+			}
+		}
+	}
+}

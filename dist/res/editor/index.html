@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DNXWallpaper v3 · Adaptar a dispositivo</title>
+  <link rel="icon" type="image/png" href="/editor/mobile.png">
+  <link rel="stylesheet" href="/editor/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img class="logo" src="/editor/mobile.png" alt="Adaptar a dispositivo">
+      <div>
+        <h1>Adaptar a dispositivo</h1>
+        <p>Recorta, escala y genera un vídeo optimizado para el móvil.</p>
+      </div>
+    </div>
+    <div id="status" class="status"></div>
+  </header>
+
+  <main class="layout">
+    <section class="stage card">
+      <div class="stage-head">
+        <div class="row">
+          <button id="btnCurrent" class="btn">Cargar fondo actual</button>
+          <input id="filePath" class="input path" placeholder="Ruta del vídeo (dentro de res\)">
+          <button id="btnLoad" class="btn ghost">Cargar</button>
+        </div>
+        <div id="sourceInfo" class="meta">Sin origen.</div>
+      </div>
+
+      <div class="video-outer">
+        <div id="videoBox" class="video-box">
+          <video id="video" muted loop playsinline autoplay></video>
+          <div id="overlay" class="overlay">
+            <div id="rect" class="rect">
+              <div class="h nw" data-dir="nw"></div>
+              <div class="h n"  data-dir="n"></div>
+              <div class="h ne" data-dir="ne"></div>
+              <div class="h e"  data-dir="e"></div>
+              <div class="h se" data-dir="se"></div>
+              <div class="h s"  data-dir="s"></div>
+              <div class="h sw" data-dir="sw"></div>
+              <div class="h w"  data-dir="w"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hint">Arrastra el rectángulo para moverlo. Usa los tiradores para redimensionar. Con Ctrl/Shift/Alt se imanta a los bordes.</div>
+    </section>
+
+    <aside class="side card">
+      <div class="tabs">
+        <button class="tab active" data-tab="config">Configurar</button>
+        <button class="tab" data-tab="result">Vídeo generado</button>
+      </div>
+
+      <div id="tab-config" class="tab-content active">
+        <div class="field">
+          <label>Origen</label>
+          <div class="row">
+            <select id="orientation" class="input">
+              <option value="portrait">Vertical</option>
+              <option value="landscape">Horizontal</option>
+            </select>
+            <select id="aspect" class="input">
+              <option value="9:19.5">9:19.5</option>
+              <option value="9:20">9:20</option>
+              <option value="9:21">9:21</option>
+              <option value="9:16">9:16</option>
+              <option value="16:9">16:9</option>
+              <option value="16:10">16:10</option>
+              <option value="4:3">4:3</option>
+              <option value="3:2">3:2</option>
+              <option value="1:1">1:1</option>
+              <option value="custom">Personalizado…</option>
+            </select>
+          </div>
+          <div id="customAspect" class="row hidden">
+            <input id="aw" class="input" type="number" min="1" step="1" value="9">
+            <span class="colon">:</span>
+            <input id="ah" class="input" type="number" min="1" step="0.5" value="19.5">
+            <button id="btnAspect" class="btn ghost">Aplicar</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Destino</label>
+          <input id="device" class="input" placeholder="Móvil, tablet, TV…" value="Móvil">
+          <input id="title" class="input" placeholder="Título del wallpaper">
+        </div>
+
+        <div class="field">
+          <label>Resolución objetivo (lado corto)</label>
+          <select id="target" class="input">
+            <option value="720">720</option>
+            <option value="1080" selected>1080</option>
+            <option value="1440">1440</option>
+            <option value="2160">2160</option>
+          </select>
+          <div class="hint">Nunca se amplía: si el recorte es menor, se queda en su tamaño.</div>
+        </div>
+
+        <div class="field">
+          <label>Calidad</label>
+          <select id="quality" class="input">
+            <option value="1">1 · mínima</option>
+            <option value="2">2 · baja</option>
+            <option value="3" selected>3 · recomendada</option>
+            <option value="4">4 · alta</option>
+            <option value="5">5 · máxima</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Fade loop: <span id="fadeVal">0.0</span> s</label>
+          <input id="fade" class="range" type="range" min="0" max="2" step="0.25" value="0">
+          <div class="checkline">
+            <label><input id="square" type="checkbox"> Cuadrado universal</label>
+          </div>
+          <div class="hint">El fade alarga/rota el loop para que no salte al reiniciar.</div>
+        </div>
+
+        <div class="field">
+          <label>Vista previa de salida</label>
+          <div class="outinfo" id="outInfo">—</div>
+        </div>
+
+        <button id="btnExport" class="btn primary big" disabled>Generar vídeo</button>
+        <button id="btnCancel" class="btn danger hidden">Cancelar</button>
+        <div class="progress"><div id="bar"></div></div>
+      </div>
+
+      <div id="tab-result" class="tab-content">
+        <div id="emptyResult" class="empty">
+          <div class="emptyIcon">▣</div>
+          <p>Genera un vídeo para ver aquí el resultado, el QR y la URL.</p>
+        </div>
+        <div id="result" class="result hidden">
+          <video id="resultVideo" muted loop playsinline controls></video>
+          <div id="resultInfo" class="meta"></div>
+          <div class="qr-row">
+            <div id="qr"></div>
+            <div class="qr-side">
+              <div class="label">Escanear en el móvil</div>
+              <input id="resultUrl" class="input url" readonly>
+              <div class="row">
+                <button id="btnCopy" class="btn ghost">Copiar URL</button>
+                <button id="btnOpen" class="btn ghost">Abrir</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/editor/qrcode.min.js"></script>
+  <script src="/editor/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "_comment": "Configuracion por defecto del motor (res/). Equivale a los defaults embebidos: clearcolor 0.7, 1920x1080, vsync activado, audio loopback activado.",
+  "render": {
+    "width": 1920,
+    "height": 1080,
+    "vsync": true,
+    "clearcolor": [0.7, 0.7, 0.7]
+  },
+  "audio": {
+    "enabled": true,
+    "threshold": 0.0,
+    "mode": 0
+  },
+  "playlist": {
+    "shaders": {
+      "gaussian": "res/shaders/dx11playlistgaussian.hlsl",
+      "transition": "res/shaders/dx11playlisttransition.hlsl"
+    }
+  }
+}

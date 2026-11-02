@@ -1,0 +1,14 @@
+{
+  "_comment": "Manifiesto EXTERNO de hashes (res/). El launcher original lleva esta tabla embebida en .rdata (pares ruta->sha256 hex). Aqui vive en un archivo editable: se verifica con file_verify y se regenera sin recompilar.",
+  "files": {
+    "DNXWallpaper.Motor.exe": "<sha256 de 64 chars>",
+    "DNXWallpaper.UI.exe": "<sha256 de 64 chars>",
+    "bin/libcef.dll": "<sha256 de 64 chars>",
+    "bin/chrome_elf.dll": "<sha256 de 64 chars>",
+    "bin/chrome_100_percent.pak": "<sha256 de 64 chars>",
+    "bin/chrome_200_percent.pak": "<sha256 de 64 chars>",
+    "bin/dxcompiler.dll": "<sha256 de 64 chars>",
+    "bin/dxil.dll": "<sha256 de 64 chars>",
+    "bin/d3dcompiler_47.dll": "<sha256 de 64 chars>"
+  }
+}

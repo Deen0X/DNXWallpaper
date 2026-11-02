@@ -1,0 +1,49 @@
+# Dominio: ui_patterns
+
+> Patrones reutilizables de la UI de DNXWallpaper v3. No es un estado de tareas.
+> Detalle completo: `docs/ui-redesign.md`.
+
+## Patrones
+
+- **DNX UI Style** (skill `dnx-ui-style`): Fluent/Mica, Settings Cards, Segoe UI
+  Variable, iconos monoline, toggle switches, botones de 40 px y radios de 8 px.
+- **Shell**: titlebar propio + sidebar fija (~250 px) + área de contenido.
+  Secciones: Inicio, Biblioteca, Descubrir, Reproducción, Pantallas, Plugins,
+  Extras, Herramientas, Ajustes.
+- **Settings Card**: título + descripción + control a la derecha; borde 1 px,
+  padding 16/12; agrupadas por sección.
+- **Biblioteca**: toolbar (búsqueda/filtros/orden/vista/importar) + grid de
+  tarjetas + panel de detalle + barra de selección.
+- **Descubrir**: selector de fuentes (plugins `catalog`) + grid + detalle;
+  estados por plugin (cargando/error/CONFIG_REQUIRED).
+- **Plugins**: grupos Fuentes / Wallpapers / Extras; configuración generada
+  desde `plugin.json` (`config.mode=form`) o editor externo.
+- **Preview**: clic → lightbox a pantalla completa; no ventana aparte.
+- **Iconos**: Lucide (SVG inline); nunca Font Awesome ni el icono de Steam.
+- **Tema**: claro/oscuro/sistema, acento del sistema, Mica/Acrylic; contraste
+  alto y escalado 100–200 %.
+- **Estados**: skeleton, vacío con acción, error con reintentar.
+- **Búsqueda global** `Ctrl+K` (secciones, ajustes, wallpapers, plugins).
+
+## Ficheros clave
+
+- `docs/ui-redesign.md` — análisis, IA y fases.
+- `docs/implementation-plan.md` — roadmap.
+- `dist/ui/dist/scripts/scripts.js` — UI original (legacy; no editar a mano).
+- `wallpaper-ui-re/src/cef/cef_app_impl.cpp` — inyecciones y puente de la UI
+  original.
+- `wallpaper-ui-re/src/cef/cef_v8_bindings.cpp` — bridge V8.
+- `wallpaper-ui-re/src/net/lan_server.cpp` — API LAN (`/api/*`, `/dl`, `/m`).
+
+## Gotchas
+
+- La UI actual es un bundle AngularJS minificado; los parches son CSS/JS. No se
+  puede “borrar” Steam de forma quirúrgica: la eliminación real llega con la UI
+  nueva.
+- El bundle original usa `$templateCache`; las vistas no están en disco.
+- Los locales del original están en `dist/locales/{core,ui}_<lang>.json`; la UI
+  nueva no los reutiliza.
+- La UI vieja se quedará en `/legacy` solo durante la transición.
+- Mica/transparencia + CEF: probar DPI 100/125/150 % y el fondo transparente.
+- El título de ventana y la marca visible son DNXWallpaper v3; los nombres
+  internos de exe/carpetas se mantienen para no romper rutas.

@@ -1,0 +1,9 @@
+{
+  "_comment": "Skins externos (res/). Formato observado: ui/skins.json lista variantes; cada skin es un CSS bajo styles/. Query: ?skinStyle=styles/<fichero>&skinKey=<clave>.",
+  "default": "styles/main.css",
+  "skins": [
+    { "key": "dark", "file": "styles/main.css" },
+    { "key": "winter", "file": "styles/skinwinter.css" },
+    { "key": "space", "file": "styles/skinspace.css" }
+  ]
+}

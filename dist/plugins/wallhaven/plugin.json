@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "id": "wallhaven",
+  "name": "Wallhaven",
+  "version": "2.0.0",
+  "description": "Wallpapers estáticos de wallhaven.cc (API oficial, solo SFW).",
+  "author": "DNXWallpaperEngine",
+  "license": "personal-use",
+  "runtime": "python",
+  "entry": "main.py",
+  "icon": "icon.png",
+  "capabilities": ["health", "categories", "list", "detail", "thumb", "fetch", "config"],
+  "mediaTypes": ["image"],
+  "net": ["wallhaven.cc", "th.wallhaven.cc", "w.wallhaven.cc"],
+  "rateLimit": { "requestsPerMinute": 45, "burst": 5 },
+  "config": { "version": 1, "fields": [] },
+  "attribution": "Imágenes de Wallhaven.cc y sus autores.",
+  "redistributable": false
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "id": "mylivewallpapers",
+  "name": "MyLiveWallpapers",
+  "version": "2.0.0",
+  "description": "Vídeos de mylivewallpapers.com (Sucuri + MP4 móvil directo).",
+  "author": "DNXWallpaperEngine",
+  "license": "personal-use",
+  "runtime": "python",
+  "entry": "main.py",
+  "icon": "icon.png",
+  "capabilities": ["health", "categories", "list", "detail", "thumb", "fetch", "config"],
+  "mediaTypes": ["video"],
+  "net": ["mylivewallpapers.com"],
+  "rateLimit": { "requestsPerMinute": 20, "burst": 3 },
+  "config": { "version": 1, "fields": [] },
+  "attribution": "MyLiveWallpapers.com y sus autores.",
+  "redistributable": false
+}

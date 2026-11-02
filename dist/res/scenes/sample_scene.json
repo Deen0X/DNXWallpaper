@@ -1,0 +1,23 @@
+{
+	"_comment": "Escena de ejemplo (res/). Reutiliza el formato documentado en wallpaper-engine-re/examples/project-format.md; referencia: projects/defaultprojects/beach/scene.json.",
+	"camera" : 
+	{
+		"center" : "0.000 0.000 -1.000",
+		"eye" : "0.000 0.000 0.000",
+		"up" : "0.000 1.000 0.000"
+	},
+	"general" : 
+	{
+		"ambientcolor" : "0.300 0.300 0.300",
+		"bloom" : false,
+		"norecompile" : true,
+		"clearcolor" : "0.700 0.700 0.700",
+		"orthogonalprojection" : 
+		{
+			"height" : 1080,
+			"width" : 1920
+		},
+		"skylightcolor" : "0.300 0.300 0.300"
+	},
+	"objects" : []
+}

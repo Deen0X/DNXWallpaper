@@ -1,0 +1,65 @@
+<!doctype html>
+<!--
+  Réplica estructural de wallpaper_engine/ui/dist/index.html
+  (reconstruida con REA: 2320 bytes originales, AngularJS 1.x + ngRoute)
+
+  Observaciones del original:
+  - <html style="display:none"> hasta que carga el skin CSS (evita FOUC).
+  - El skin se elige por query params: ?skinStyle=...&skinKey=...
+  - Modos de rendimiento: ?uiperf=1 (sin HW FX), ?uiperf=2 (sin HW ni basic FX).
+  - ?win11 añade clase win11Style.
+  - Ctrl+rueda bloqueado (previene zoom accidental).
+  - Bundles: scripts/vendor.js (AngularJS + libs) y scripts/scripts.js (app).
+  - Módulo AngularJS: "wallpaperbrowserApp", vista principal ng-view.
+-->
+<html style="display:none">
+<head>
+  <meta charset="utf-8">
+  <title>Wallpaper Engine (reconstrucción)</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width">
+  <link rel="stylesheet" href="styles/vendor.css">
+  <script type="text/javascript">
+    (function () {
+      var url = new URL(window.location.href);
+      var style = url.searchParams.get('skinStyle') || 'styles/main.css';
+      var head = document.head;
+      var styleElement = document.createElement('link');
+      styleElement.href = style;
+      styleElement.id = 'mainStyle';
+      styleElement.rel = 'stylesheet';
+      styleElement.type = 'text/css';
+      styleElement.setAttribute('skin-key', url.searchParams.get('skinKey'));
+      styleElement.onload = function () {
+        document.documentElement.style.display = 'initial';
+      };
+      head.appendChild(styleElement);
+      switch (url.searchParams.get('uiperf')) {
+        case '1':
+          document.documentElement.classList.add('removeHWFX');
+          break;
+        case '2':
+          document.documentElement.classList.add('removeHWFX');
+          document.documentElement.classList.add('removeBasicFX');
+          break;
+      }
+      if (url.searchParams.get('win11')) {
+        document.documentElement.classList.add('win11Style');
+      }
+    })();
+    document.addEventListener('wheel', function (e) {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, { passive: false });
+  </script>
+  <script src="scripts/vendor.js"></script>
+  <script src="scripts/app.js"></script>
+</head>
+<body ng-app="wallpaperbrowserApp" ng-class="languageClass">
+  <titlebar></titlebar>
+  <div ng-view=""></div>
+  <help-overlay></help-overlay>
+</body>
+</html>

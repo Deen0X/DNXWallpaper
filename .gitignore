@@ -1,0 +1,125 @@
+﻿# ============================================================
+#  DNXWallpaper v3 — .gitignore raíz
+#  Sólo fuentes: ni binarios, ni cachés, ni datos de usuario.
+# ============================================================
+
+# --- Secretos / configuración local de plugins -----------------
+# Los plugins pueden guardar API keys, tokens o credenciales en
+# config.json. Nunca deben versionarse.
+**/config.json
+**/*config.json
+
+# Secretos genéricos
+**/*.key
+**/*.pem
+**/secrets.json
+**/.env
+**/.env.*
+
+# --- Estado de ejecución / cachés ------------------------------
+dist/cef-cache/
+dist/GPUCache/
+dist/DawnCache/
+dist/ShaderCache/
+dist/GrShaderCache/
+dist/GraphiteDawnCache/
+dist/WidevineCdm/
+DawnCache/
+GPUCache/
+**/js-console.log
+**/js-calls.log
+**/js-inject.log
+**/js-args.log
+**/cef-debug.log
+**/debug.log
+dist/res/wallpaper.log
+dist/res/cache/
+dist/res/providers/
+**/*.log
+log.txt
+
+# --- Datos de usuario (no distribuir) --------------------------
+dist/res/current.json
+dist/res/config/
+dist/res/mobile/
+dist/res/uploads/
+dist/res/optimized/
+dist/res/projects/
+
+# --- Repos clonados, backups y temporales ----------------------
+rea/
+backups/
+temp/
+tmp/
+.opencode/node_modules/
+node_modules/
+
+# --- dist: sólo fuentes ---------------------------------------
+# Se ignora el contenido y se reabren las carpetas que son código:
+# UI nueva (dnxui), shaders, editor de dispositivos, iconos, escenas
+# y plugins (Python). El resto (CEF, exes, cache, media, uploads,
+# mobile, providers, optimized, config, tools/ffmpeg) queda fuera.
+dist/*
+!dist/README.md
+!dist/res/
+dist/res/*
+!dist/res/dnxui/
+!dist/res/shaders/
+!dist/res/editor/
+!dist/res/icons/
+!dist/res/scenes/
+!dist/plugins/
+
+# --- Caché de plugins y medios de prueba ----------------------
+dist/plugins/*/cache/
+wallpaper-motor-re/res/projects/
+
+# --- Artefactos de compilación --------------------------------
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.res
+*.tlog
+*.idb
+*.iobj
+*.ipdb
+*.exe
+*.dll
+*.scr
+*.dat
+*.bin
+.vs/
+**/CMakeFiles/
+**/cmake-build-*/
+bin/Debug/
+bin/Release/
+
+# --- Android --------------------------------------------------
+appcompanion/DnxCompanion/.gradle/
+appcompanion/DnxCompanion/.kotlin/
+appcompanion/DnxCompanion/build/
+appcompanion/DnxCompanion/app/build/
+appcompanion/DnxCompanion/local.properties
+**/*.apk
+appcompanion/*.apk+
+
+# --- Sistema / editores ---------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
+
+# --- Excepciones ----------------------------------------------
+# Config del agente (no contiene secretos).
+!.agent/config.json
+# Los plugins sí llevan su icono.
+!dist/plugins/**/icon.png
+!dist/plugins/**/icon.ico
+
+# --- Credenciales TCloud (NO versionar) -------------------------
+.tcloud.env

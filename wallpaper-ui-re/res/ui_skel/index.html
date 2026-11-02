@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- Esqueleto UI externo (res/). Contrato: skin por query, toLocalUrl,
+     host.callEditor. Sin display:none: visible inmediato. -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Wallpaper UI local</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <script type="text/javascript">
+    window.toLocalUrl = function (p) {
+      return 'http://wpx.internal/__file/' + encodeURIComponent(p);
+    };
+  </script>
+</head>
+<body>
+  <h1>Wallpaper UI local</h1>
+  <div id="status">sin host</div>
+  <script>
+    (function () {
+      var el = document.getElementById('status');
+      if (window.editorObject && window.editorObject.getProjects) {
+        el.textContent = 'bridge OK, pidiendo proyectos...';
+        window.getProjectsCallback = function (projects) {
+          el.textContent = 'proyectos: ' + JSON.stringify(projects);
+        };
+        window.getProjectsCallbackError = function (e) {
+          el.textContent = 'error: ' + e;
+        };
+        window.editorObject.getProjects();
+      } else {
+        el.textContent = 'sin bridge nativo (modo navegador)';
+      }
+    })();
+  </script>
+</body>
+</html>

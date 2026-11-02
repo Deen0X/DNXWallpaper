@@ -1,0 +1,62 @@
+## Sesión 2026-11-02: la descarga la hace el plugin
+
+- **`fetch` del plugin como mecanismo de descarga**: `FetchRemoteMediaSync`
+  pide el medio al plugin (`fetch --id --out`) y la descarga HTTP directa queda
+  como respaldo. La vista previa animada usa `fetch --kind preview` en lugar de
+  un `curl` a la URL del catálogo (motionbgs ya previsualiza).
+- **Validación del fichero descargado** (`MediaFileLooksValid`, cabecera real +
+  tamaño mínimo, reutiliza `SniffMediaExt`): era la causa del "Error: ffmpeg" —
+  el CDN devolvía HTML (~4,9 KB) que se guardaba como `.mp4`. Los restos
+  inválidos se descartan y se vuelven a pedir.
+- **stderr de los plugins capturado** en `RunPluginCommand`: antes un fallo sólo
+  dejaba `exit=N`. Ya se ve el motivo real.
+- **`local exit=2` arreglado**: los plugins sin `dnxlib.py` no aceptan
+  `--cache-dir`; sólo se pasa a los del contrato v2. Catálogo local recuperado
+  (2 → 52 items; 7.336 en total).
+- Verificado: `.mp4` sustituido por HTML de 102 B → descartado → `fetch` del
+  plugin (12,5 MB) → composición OK (14,1 s); composición local OK (4,9 s);
+  preview de motionbgs resuelta por el plugin (WebP 92 KB).
+- **Asignación real por monitor en el motor**: `current.json` acepta
+  `displays[]`; el renderer tiene una textura por celda y dibuja cada vídeo en
+  su caja del escritorio virtual (ajuste y recorte por pantalla). Se usa con
+  2+ pantallas, Individual/Clonar y «Sin fundido»: Aplicar es instantáneo y no
+  genera fichero. Con fundido se sigue componiendo (crossfade de ffmpeg).
+  Verificado repartiendo dos vídeos en un monitor (izquierda «expand», derecha
+  «fill») y volviendo al fichero único.
+- **APK**: con targetSdk 36 la barra inferior quedaba bajo la barra de
+  navegación; `navigationBarsPadding()` en el `bottomBar`. APK subida a TCloud.
+## Sesión 2026-11-01: cola de miniaturas por plugin
+
+- Cola FIFO por proveedor con 12 workers globales y máximo 2 por plugin,
+  round-robin, dedupe, backoff de 3 intentos y cuarentena de 60 s.
+- `POST /api/thumb/prefetch` (máx. 200 claves) prioriza las tarjetas visibles.
+- `/api/thumb` encola y responde 404 en ~0,5 s; ya no bloquea 15 s.
+- Pipeline: medio local -> clip/póster -> `thumb` del plugin, respetando
+  `thumbs.staticCropped`/`animatedCropped`.
+- `app.js`: prefetch de las 20 primeras + IntersectionObserver y reintento con
+  espera creciente (900 ms + 700 ms por intento, máx. 8 s).
+- Aceptación: 60 tarjetas 100% en 10,7-13,6 s (90% en 6,4-13,3 s), 8/8
+  miniaturas wallsflow, build `DNXWALLPAPER UI OK`.
+## Sesión 2026-10-30 (3): editor de escritorio, playlist y salvapantallas
+
+- **Editor de pantallas**: el preview es el escritorio. Cada monitor muestra su
+  wallpaper con su ajuste (por pantalla en Individual; único en Clonar y
+  Panorámico) y su encuadre (rueda = zoom, botón central = arrastrar; con Ctrl
+  no sale del borde). Un solo Aplicar, deshabilitado si no hay cambios.
+- **Composición**: `/api/compose` genera un único vídeo del tamaño del
+  escritorio virtual (Individual/Clonar/Panorámico/Ninguno) con recorte real,
+  bandas negras si el encuadre se sale y fundido de bucle (crossfade). Clonar
+  puede bajar a la resolución del monitor más pequeño.
+- **Rendimiento**: vista previa con WebP animado (480 px, 4 s, servidor,
+  cacheado) y miniatura instantánea; cola de preparación de celdas en segundo
+  plano con prioridad y cancelación al panear; barra de avance real de ffmpeg
+  al aplicar; firma del plan para no regenerar lo que ya está aplicado.
+- **Fallos corregidos**: ffmpeg heredaba los handles de CEF y tumbaba la UI al
+  terminar; `/api/settings` recargaba el fondo en cada guardado; el preview
+  perdía `perMonitor`; los `optimized:` se podaban al arrancar; `crop` se
+  ignoraba en la composición.
+- **Playlist activa**: intervalo y Activar/Detener; escribe `current.json` con
+  `playlist: true` y el motor rota con transición.
+- **Salvapantallas**: el servidor deja la ruta elegida en
+  `res/config/screensaver.json`, instala `DNXWallpaper.scr` en Windows y el
+  motor la usa (y ya arranca con su propio directorio de trabajo).

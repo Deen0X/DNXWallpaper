@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "id": "lively",
+  "name": "LivelyWallpaper.app",
+  "version": "2.0.0",
+  "description": "Vídeos de livelywallpaper.app (sitio fan-made, no oficial).",
+  "author": "DNXWallpaperEngine",
+  "license": "personal-use",
+  "runtime": "python",
+  "entry": "main.py",
+  "icon": "icon.png",
+  "capabilities": ["health", "categories", "list", "detail", "thumb", "fetch", "config"],
+  "mediaTypes": ["video"],
+  "net": ["livelywallpaper.app", "cdn.livelywallpaper.app"],
+  "rateLimit": { "requestsPerMinute": 20, "burst": 3 },
+  "config": { "version": 1, "fields": [] },
+  "attribution": "LivelyWallpaper.app (fan-made, no oficial) y sus autores.",
+  "redistributable": false
+}

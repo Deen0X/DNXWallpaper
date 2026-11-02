@@ -1,0 +1,6 @@
+{
+  "agent": {
+    "default_model": "gemini-3-pro",
+    "reasoning_tier": "low"
+  }
+}

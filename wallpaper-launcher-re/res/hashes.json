@@ -1,0 +1,6 @@
+{
+  "_comment": "Manifiesto EXTERNO de hashes (res/). Sustituye la tabla embebida en .rdata del launcher original. El launcher lo carga al arrancar: sin recompilar se actualiza la distribucion. Rellena los sha256 con rz-hash -a sha256 <archivo>.",
+  "files": {
+    "DNXWallpaper.Motor.exe": "",
+  }
+}

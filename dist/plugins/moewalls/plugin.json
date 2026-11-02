@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "id": "moewalls",
+  "name": "MoeWalls",
+  "version": "2.0.0",
+  "description": "Vídeos de moewalls.com (scraping y token de descarga directa).",
+  "author": "DNXWallpaperEngine",
+  "license": "personal-use",
+  "runtime": "python",
+  "entry": "main.py",
+  "icon": "icon.png",
+  "capabilities": ["health", "categories", "list", "detail", "thumb", "fetch", "config"],
+  "mediaTypes": ["video"],
+  "net": ["moewalls.com", "go.moewalls.com"],
+  "rateLimit": { "requestsPerMinute": 20, "burst": 3 },
+  "config": { "version": 1, "fields": [] },
+  "attribution": "MoeWalls.com y sus autores.",
+  "redistributable": false
+}

@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DNXWallpaper v3</title>
+  <link rel="icon" type="image/png" href="/editor/mobile.png">
+  <link rel="stylesheet" href="/ui2/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <img src="/editor/about.png" alt="">
+      <div>
+        <div class="brand-name">DNXWallpaper</div>
+        <div class="brand-ver">v3 · interfaz</div>
+      </div>
+    </div>
+
+    <nav id="nav">
+      <button class="nav-item active" data-sec="displays">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+        <span>Pantallas</span>
+      </button>
+      <button class="nav-item" data-sec="catalog">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>Catálogo</span>
+      </button>
+      <button class="nav-item" data-sec="tools">
+        <svg viewBox="0 0 24 24"><path d="M14 4a5 5 0 0 0-6.5 6.5L4 14v6h6l3.5-3.5A5 5 0 0 0 20 10l-3 3-3-3 3-3a5 5 0 0 0-3-3z"/></svg>
+        <span>Herramientas</span>
+      </button>
+      <button class="nav-item" data-sec="screensaver">
+        <svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>
+        <span>Salvapantallas</span>
+      </button>
+      <button class="nav-item" data-sec="playlist">
+        <svg viewBox="0 0 24 24"><path d="M4 6h12M4 12h12M4 18h8"/><path d="M19 10v8M16.5 15.5 19 18l2.5-2.5"/></svg>
+        <span>Playlist</span>
+      </button>
+      <button class="nav-item" data-sec="plugins">
+        <svg viewBox="0 0 24 24"><path d="M10 4h4v3a2 2 0 1 0 4 0h2v4h-3a2 2 0 1 0 0 4h3v4h-4v-2a2 2 0 1 0-4 0v2h-4v-4h2a2 2 0 1 0 0-4H4V7h3a2 2 0 1 0 0-4z"/></svg>
+        <span>Plugins</span>
+      </button>
+      <button class="nav-item" data-sec="connect">
+        <svg viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0 1 14 0M8 16a6 6 0 0 1 8 0"/><path d="M12 19.5h.01"/></svg>
+        <span>Conexión</span>
+      </button>
+      <button class="nav-item" data-sec="about">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+        <span>Acerca de</span>
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <span id="pcName">PC</span>
+      <span id="pcAddr" class="muted"></span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <!-- PANTALLAS -->
+    <section class="sec active" id="sec-displays">
+      <header class="sec-head">
+        <h1>Pantallas</h1>
+        <p>Elige el wallpaper de cada monitor.</p>
+      </header>
+      <div class="card monitor-card">
+        <div class="toolbar" style="margin-bottom:10px">
+          <label class="mini-check"><input type="checkbox" id="animPreview" checked> Animar vista previa</label>
+        </div>
+        <div class="monitor-map" id="monitorMap"></div>
+      </div>
+
+      <div class="mode-bar" id="modeBar">
+        <button class="mode" data-dmode="individual">
+          <span class="tri">
+            <img src="/ui2/icons/ind1.png" alt="">
+            <img src="/ui2/icons/ind2.png" alt="">
+            <img src="/ui2/icons/ind3.png" alt="">
+          </span>
+          <span>Individual</span>
+        </button>
+        <button class="mode" data-dmode="clone">
+          <span class="tri">
+            <img src="/ui2/icons/mirror.png" alt="">
+            <img src="/ui2/icons/mirror.png" alt="">
+            <img src="/ui2/icons/mirror.png" alt="">
+          </span>
+          <span>Clonar</span>
+        </button>
+        <button class="mode" data-dmode="expand">
+          <span class="tri">
+            <img src="/ui2/icons/pano1.png" alt="">
+            <img src="/ui2/icons/pano2.png" alt="">
+            <img src="/ui2/icons/pano3.png" alt="">
+          </span>
+          <span>Panorámico</span>
+        </button>
+        <button class="mode" data-dmode="none">
+          <span class="tri">
+            <span class="off-mon"></span>
+            <span class="off-mon"></span>
+            <span class="off-mon"></span>
+          </span>
+          <span>Ninguno</span>
+        </button>
+      </div>
+
+      <div class="fit-bar">
+        <span class="muted" id="fitLabel">Ajuste</span>
+        <select id="fitMode" class="input small">
+          <option value="expand">Expandir (cubre y recorta)</option>
+          <option value="fill">Rellenar (deforma)</option>
+          <option value="center">Centrar (tamaño original)</option>
+        </select>
+        <span class="muted">Bucle</span>
+        <select id="fadeMode" class="input small">
+          <option value="0">Sin fundido</option>
+          <option value="0.5">Fundido 0,5 s</option>
+          <option value="0.8">Fundido 0,8 s</option>
+          <option value="1.5">Fundido 1,5 s</option>
+        </select>
+        <label class="mini-check" id="cloneLowWrap" style="display:none">
+          <input type="checkbox" id="cloneLow"> Menor resolución
+        </label>
+        <button class="btn ghost" id="optOpen">Optimizar…</button>
+      </div>
+
+      <div class="apply-bar" id="applyBar">
+        <div class="apply-track" id="applyTrack" hidden><span id="applyFill"></span></div>
+        <span class="grow" id="applyText">Sin cambios pendientes.</span>
+        <button class="btn" id="applyNow" disabled>Aplicar</button>
+        <button class="btn ghost" id="applyCancel" disabled>Descartar</button>
+      </div>
+      <div class="monitor-legend" id="monitorLegend"></div>
+      <p class="muted" id="displaysNote" style="font-size:11px;margin-top:10px"></p>
+    </section>
+
+    <!-- CATÁLOGO -->
+    <section class="sec" id="sec-catalog">
+      <header class="sec-head">
+        <h1>Catálogo</h1>
+        <p>Wallpapers de tus plugins y de tus carpetas locales.</p>
+      </header>
+      <div class="toolbar">
+        <input id="search" class="input" placeholder="Buscar en todo el catálogo…">
+        <div class="chips" id="catFilters">
+          <button class="chip active" data-t="all">Todo</button>
+          <button class="chip" data-t="video">🎬 Vídeo</button>
+          <button class="chip" data-t="image">🖼️ Imagen</button>
+        </div>
+        <select id="catOrient" class="input small">
+          <option value="">Cualquier orientación</option>
+          <option value="landscape">Horizontal</option>
+          <option value="portrait">Vertical</option>
+        </select>
+        <select id="catRes" class="input small">
+          <option value="0">Cualquier resolución</option>
+          <option value="2160">4K</option>
+          <option value="1440">2K</option>
+          <option value="1080">Full HD</option>
+        </select>
+        <div class="chips" id="sources"></div>
+        <button id="refresh" class="btn ghost">Actualizar</button>
+        <button id="catRandom" class="btn ghost" title="Página aleatoria de cada plugin">🎲 Barajar</button>
+        <button id="catDeep" class="btn ghost" title="Pide varias páginas a cada plugin">Recargar catálogo</button>
+        <button id="liveBack" class="btn ghost" hidden>Volver al catálogo</button>
+        <span class="muted" id="liveInfo" style="font-size:11px"></span>
+        <label class="btn ghost" for="upFile" style="cursor:pointer">Subir vídeo…</label>
+        <input id="upFile" type="file" accept="video/*,image/*" hidden>
+        <label class="mini-check"><input type="checkbox" id="upPersist" checked> Guardar en el catálogo</label>
+        <span class="muted" id="catCount" style="font-size:11px"></span>
+      </div>
+      <div class="grid-thumbs" id="catalog"></div>
+      <div class="more"><button id="more" class="btn ghost">Cargar más</button></div>
+    </section>
+
+    <!-- HERRAMIENTAS -->
+    <section class="sec" id="sec-tools">
+      <header class="sec-head">
+        <h1>Herramientas</h1>
+        <p>Utilidades que trabajan con tus wallpapers.</p>
+      </header>
+      <div class="grid-cards">
+        <article class="card tool">
+          <img src="/editor/mobile.png" alt="">
+          <div>
+            <h3>Adaptar a dispositivo</h3>
+            <p>Recorta y genera una versión optimizada para tu móvil.</p>
+            <a class="btn" href="/editor/" target="_blank" rel="noopener">Abrir</a>
+          </div>
+        </article>
+        <article class="card tool dim">
+          <div class="ph">✎</div>
+          <div>
+            <h3>Editor de wallpapers</h3>
+            <p>Recorte, color y efectos sobre el vídeo original.</p>
+            <span class="tag">Próximamente</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- SALVAPANTALLAS -->
+    <section class="sec" id="sec-screensaver">
+      <header class="sec-head">
+        <h1>Salvapantallas</h1>
+        <p>Qué se muestra cuando el equipo queda inactivo.</p>
+      </header>
+      <div class="card row-card">
+        <div>
+          <h3>Activar salvapantallas</h3>
+          <p class="muted">Usa el wallpaper elegido y arranca tras el tiempo de espera.</p>
+        </div>
+        <label class="switch"><input type="checkbox" id="ssEnabled" checked><span></span></label>
+      </div>
+      <div class="card row-card">
+        <div>
+          <h3>Wallpaper del salvapantallas</h3>
+          <p class="muted" id="ssPicked">Sin elegir</p>
+        </div>
+        <button class="btn" id="ssPick">Elegir wallpaper…</button>
+      </div>
+      <div class="card row-card">
+        <div>
+          <h3>Espera</h3>
+          <p class="muted">Minutos de inactividad antes de activarse.</p>
+        </div>
+        <input class="input small" id="ssWait" type="number" min="1" max="120" value="10">
+      </div>
+      <div class="card row-card">
+        <div>
+          <h3>Instalar en Windows</h3>
+          <p class="muted" id="ssInstallHint">Registra DNXWallpaper como salvapantallas del sistema con esta espera.</p>
+        </div>
+        <button class="btn" id="ssInstall">Instalar</button>
+      </div>
+    </section>
+
+    <!-- PLAYLIST -->
+    <section class="sec" id="sec-playlist">
+      <header class="sec-head">
+        <h1>Playlist</h1>
+        <p>Rotación automática de wallpapers.</p>
+      </header>
+      <div class="card">
+        <div class="row-card">
+          <div>
+            <h3>Elementos</h3>
+            <p class="muted">Se reproducen en orden y en bucle.</p>
+          </div>
+          <button class="btn" id="plAdd">Añadir del catálogo…</button>
+        </div>
+        <ul class="list" id="plList"></ul>
+        <div class="row-card" style="margin-top:14px">
+          <div>
+            <h3>Rotación en el escritorio</h3>
+            <p class="muted" id="plStatus">Detenida</p>
+          </div>
+          <label class="mini-check">Cada
+            <input type="number" id="plInterval" class="input small"
+                   style="width:76px" min="3" max="3600" value="45"> s
+          </label>
+          <button class="btn" id="plStart">Activar</button>
+          <button class="btn ghost" id="plStop">Detener</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PLUGINS -->
+    <section class="sec" id="sec-plugins">
+      <header class="sec-head">
+        <h1>Plugins</h1>
+        <p>Origen de los wallpapers. Desactiva los que no uses.</p>
+      </header>
+      <div class="card">
+        <ul class="list" id="pluginsList"></ul>
+      </div>
+    </section>
+
+    <!-- CONEXIÓN -->
+    <section class="sec" id="sec-connect">
+      <header class="sec-head">
+        <h1>Conexión</h1>
+        <p>Dirección del servidor y cómo emparejar otros dispositivos.</p>
+      </header>
+
+      <div class="card row-card">
+        <div>
+          <h3>Servidor</h3>
+          <p class="muted" id="connServer">Cargando…</p>
+        </div>
+        <span class="tag" id="connAuth">—</span>
+      </div>
+
+      <div class="card">
+        <div class="row-card">
+          <div>
+            <h3>Interfaces para el QR</h3>
+            <p class="muted">Marca las direcciones que quieres ofrecer al emparejar.</p>
+          </div>
+          <button class="btn ghost" id="connReload">Actualizar</button>
+        </div>
+        <ul class="list" id="connIfaces"></ul>
+      </div>
+
+      <div class="card">
+        <div class="row-card">
+          <div>
+            <h3>Dirección personalizada (DDNS)</h3>
+            <p class="muted">Si accedes desde fuera de casa, es la que debe llevar el QR.</p>
+          </div>
+          <label class="mini-check">
+            <input type="checkbox" id="ddnsUse"> Usar en el QR
+          </label>
+        </div>
+        <input class="input" id="ddnsHost" style="width:100%"
+               placeholder="micasa.duckdns.org  (o http://micasa.duckdns.org:8477)">
+        <p class="muted" id="ddnsHint" style="font-size:11px;margin:6px 0 0"></p>
+      </div>
+
+      <div class="card qr-card">
+        <div class="row-card">
+          <div>
+            <h3>Emparejar un dispositivo</h3>
+            <p class="muted" id="connUrls">Sin interfaces seleccionadas</p>
+          </div>
+          <button class="btn ghost" id="connCopy">Copiar</button>
+        </div>
+        <div class="qr-wrap">
+          <div id="connQr"></div>
+          <p class="muted small-note">
+            Escanea desde el companion. El QR lleva la dirección del servidor
+            que esté en uso (local o remoto).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACERCA DE -->
+    <section class="sec" id="sec-about">
+      <header class="sec-head">
+        <h1>Acerca de</h1>
+        <p>Información del proyecto.</p>
+      </header>
+      <div class="card about">
+        <img src="/editor/about.png" alt="">
+        <div>
+          <h3>DNXWallpaper v3</h3>
+          <p class="muted">Suite de wallpapers: escritorio, móvil y herramientas.</p>
+          <p class="muted" id="aboutInfo"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Selector de wallpaper (ventana modal reutilizable) -->
+<div class="modal" id="picker" hidden>
+  <div class="modal-panel">
+    <div class="modal-head">
+      <h2 id="pickerTitle">Elegir wallpaper</h2>
+      <input id="pickerSearch" class="input" placeholder="Buscar…">
+      <select id="pickerPlugin" class="input small">
+        <option value="">Todos los plugins</option>
+      </select>
+      <button class="btn ghost" id="pickerRandom" title="Página aleatoria de cada plugin">🎲</button>
+      <button class="btn ghost" id="pickerClose">Cerrar</button>
+    </div>
+    <div class="chips" id="pickerFilters" style="margin-bottom:10px">
+      <button class="chip active" data-pf="all">✨ Todo</button>
+      <button class="chip" data-pf="video">🎬 Vídeo</button>
+      <button class="chip" data-pf="image">🖼️ Imagen</button>
+      <button class="chip" data-pf="portrait">📱 Vertical</button>
+    </div>
+    <div class="grid-thumbs" id="pickerGrid"></div>
+    <div class="more"><button id="pickerMore" class="btn ghost">Cargar más</button></div>
+  </div>
+</div>
+
+<!-- Visor de wallpaper (catálogo) -->
+<div class="modal" id="viewer" hidden>
+  <div class="modal-panel viewer-panel">
+    <div class="modal-head">
+      <h2 id="viewerTitle">Wallpaper</h2>
+      <button class="btn ghost" id="viewerClose">Cerrar</button>
+    </div>
+    <div class="viewer-media" id="viewerMedia"></div>
+    <div class="dl-track" id="viewerDl" hidden><span></span></div>
+    <div class="viewer-meta" id="viewerMeta"></div>
+    <div class="viewer-actions" id="viewerActions"></div>
+  </div>
+</div>
+
+<!-- Optimizador (recorte + fade) -->
+<div class="modal" id="pluginCfg" hidden>
+  <div class="modal-panel">
+    <div class="modal-head">
+      <h2 id="cfgTitle">Configurar plugin</h2>
+      <button class="btn ghost" id="cfgClose">Cerrar</button>
+    </div>
+    <p class="muted" style="font-size:12px;margin:0 0 10px" id="cfgHint">
+      Carpetas que el plugin recorre para buscar wallpapers.
+    </p>
+    <ul class="list" id="cfgList"></ul>
+    <div class="row-card" style="margin-top:10px" id="cfgAddRow">
+      <input class="input" id="cfgNew" placeholder="D:\\Wallpapers\\Anime">
+      <button class="btn" id="cfgAdd">Añadir</button>
+    </div>
+    <div class="row-card" style="margin-top:14px">
+      <span class="grow muted" style="font-size:11px">Se guarda al pulsar Guardar.</span>
+      <button class="btn ghost" id="cfgCancel">Descartar</button>
+      <button class="btn" id="cfgSave">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="optimize" hidden>
+  <div class="modal-panel opt-panel">
+    <div class="modal-head">
+      <h2 id="optTitle">Optimizar para la pantalla</h2>
+      <button class="btn ghost" id="optClose">Cerrar</button>
+    </div>
+    <p class="muted" style="font-size:11px;margin:0 0 8px">
+      Arrastra para elegir la zona y usa la rueda para acercar. Al optimizar se
+      recorta el vídeo original: pesa menos y se adapta a la resolución de la pantalla.
+    </p>
+    <div class="opt-box" id="optBox">
+      <video id="optVideo" muted loop autoplay playsinline></video>
+    </div>
+    <div class="opt-controls">
+      <span class="muted">Fundido</span>
+      <input type="range" id="optFade" min="0" max="2" step="0.1" value="0.5">
+      <span class="muted" id="optFadeVal">0,5 s</span>
+      <button class="btn ghost" id="optReset">Centrar</button>
+      <span class="muted" id="optInfo" style="font-size:11px"></span>
+    </div>
+    <div class="opt-actions">
+      <button class="btn" id="optRun">Optimizar y aplicar</button>
+      <span class="muted" id="optStatus" style="font-size:11px"></span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="/editor/qrcode.min.js"></script>
+<script src="/ui2/app.js"></script>
+<script src="/ui2/displays-v2.js"></script>
+</body>
+</html>
