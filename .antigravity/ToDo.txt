@@ -560,6 +560,13 @@
         distinto por celda.
 
 ### P5 — infra
+- [x] **Repositorio GitHub** (2026-11-02): `Deen0X/DNXWallpaper`, rama `main`.
+      Sólo fuentes (317 ficheros, 12 MB): sin binarios, CEF, cachés, medios ni
+      credenciales.
+- [x] **Release v3.0.0**: `DNXWallpaper-v3-win64.zip` (207 MB, dist sin
+      wallpapers/cachés/config) + `DNXWallpaper-v3-companion-debug.apk` como
+      assets descargables. Generación reproducible con `tools/make_release.ps1`
+      y notas en `docs/release.md`.
 - [ ] Token de emparejamiento por QR (hoy fijo).
 - [ ] Flags `--port/--data-dir/--no-ui`, Dockerfile con ffmpeg.
 - [x] Subir la APK nueva a TCloud (msg 244; 2026-11-02).
