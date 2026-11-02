@@ -189,8 +189,7 @@
   `.tcloud.env` (gitignored, nunca en logs/Memory). Scripts:
   `tools/tcloud_upload.py` (streaming 1 MB), `tools/upload_apk.ps1/.cmd`,
   comando `/upload-apk`, skill `tcloud-upload`, doc `docs/tcloud-upload.md`.
-  Destino chat `-1004423392613`, tema 8 (debug y release). APK debug subida:
-  msg_id 10, https://t.me/c/4423392613/8/10.
+  Destino: chat y tema de `.tcloud.env`. APK debug subida: msg_id 10.
 - **Wallsflow**: plugin dirty en `dist/plugins/wallsflow`; scrapea
   `/live-wallpapers/page/N/`, cachea en `cache.json` y sirve preview 720p/10s.
   La descarga 4K está detrás de Cloudflare/login; no se intenta.
@@ -494,3 +493,21 @@
 - **APK**: targetSdk 36 = edge-to-edge obligatorio; cualquier barra inferior
   necesita `navigationBarsPadding()` (el `Scaffold` no lo aplica al
   `bottomBar`).
+
+## Publicación y preview de Pantallas (2026-11-02)
+
+- **Repo**: `https://github.com/Deen0X/DNXWallpaper` (público, rama `main`).
+  Sólo fuentes; binarios, CEF, cachés, medios, `res\config` y
+  `plugins\*\config.json` fuera.
+- **Release = assets**: `DNXWallpaper-v3-win64.zip` (~207 MB) + APK. GitHub
+  limita a 100 MB por fichero, así que `dist\` nunca entra en git. Regenerar
+  con `tools\make_release.ps1` (comprueba que no se cuelan datos) y publicar
+  según `docs/release.md`.
+- **Ojo**: los enlaces de descarga de una release dan 404 para terceros si el
+  repo es privado. Para descarga pública, repo público.
+- **IDs de chat**: el destino de TCloud vive sólo en `.tcloud.env`; no se
+  escriben IDs ni enlaces `t.me/c/...` en docs, `AGENTS.md` ni skills.
+- **Geometría de Pantallas**: el mapa calculaba tamaños una sola vez al pintar,
+  así que maximizar/restaurar no actualizaba el preview. Ahora
+  `layoutWorkspace(list)` (sólo geometría) se llama al pintar y en `resize`
+  (debounce 120 ms) + `repositionAll()`, sin recrear los medios.

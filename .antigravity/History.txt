@@ -97,7 +97,7 @@ Brainstorming cerrado. Decisiones de arquitectura registradas en
   perfiles, QR) servida por la app; probada con una exportación 332×720
   (0,8 MB, 10 s).
 - App Android: soporte `/m/` y filtro de intent; probado en emulador.
-- APK msg 13/14: https://t.me/c/4423392613/8/13 · /8/14
+- APK msg 13/14: msg 13 · /8/14
 - El selector de fondos animados usaba `resolveActivity`, que en Android 11+
   da falso negativo por package visibility; se elimina y se captura la
   excepción. Probado: el picker abre.
@@ -139,7 +139,7 @@ Brainstorming cerrado. Decisiones de arquitectura registradas en
   (`uses-feature-not-required`). APK 12,92 MB probada en emulador.
 - **TCloud**: credenciales en `.tcloud.env` (gitignored), scripts en `tools/`,
   comando `/upload-apk` y skill `tcloud-upload`. APK debug subida al tema 8:
-  msg_id 10, https://t.me/c/4423392613/8/10.
+  msg_id 10.
 - **APK**: botón `Elegir vídeo del dispositivo` (SAF), descarga con error
   detallado y timeout de 300 s; FydeOS/ChromeOS se detecta y avisa sin
   crash. Subidas msg 11 y 12.

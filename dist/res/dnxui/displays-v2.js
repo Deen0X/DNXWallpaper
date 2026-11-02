@@ -258,11 +258,14 @@ function renderShot(canvas, m, slot, mode, list) {
   animateLater(img);
 }
 
-function renderWorkspace(list) {
+/**
+ * Coloca las cajas de los monitores dentro del panel según su tamaño actual.
+ * Es sólo geometría: no recrea los medios (así el vídeo/WebP no se reinicia).
+ * Se llama al pintar y al redimensionar la ventana.
+ */
+function layoutWorkspace(list) {
   const map = document.getElementById('monitorMap');
-  if (!map) return;
-  state.shots = [];
-  if (!list.length) { map.innerHTML = ''; return; }
+  if (!map || !list || !list.length) return;
   const minX = Math.min(...list.map((m) => m.x));
   const minY = Math.min(...list.map((m) => m.y));
   const maxX = Math.max(...list.map((m) => m.x + m.width));
@@ -276,15 +279,26 @@ function renderWorkspace(list) {
   const scale = Math.min(boxW / totalW, maxH / totalH);
   map.style.height = Math.round(totalH * scale) + 'px';
   const offsetX = Math.max(0, (boxW - totalW * scale) / 2);
+  list.forEach((m) => {
+    const el = map.querySelector('.monitor[data-mon="' + m.index + '"]');
+    if (!el) return;
+    el.style.left = (offsetX + (m.x - minX) * scale) + 'px';
+    el.style.top = ((m.y - minY) * scale) + 'px';
+    el.style.width = (m.width * scale) + 'px';
+    el.style.height = (m.height * scale) + 'px';
+  });
+}
+
+function renderWorkspace(list) {
+  const map = document.getElementById('monitorMap');
+  if (!map) return;
+  state.shots = [];
+  if (!list.length) { map.innerHTML = ''; return; }
 
   const mode = settings.displays.mode;
   const prim = primaryIndex();
 
   map.innerHTML = list.map((m) => {
-    const left = (offsetX + (m.x - minX) * scale) + 'px';
-    const top = ((m.y - minY) * scale) + 'px';
-    const w = (m.width * scale) + 'px';
-    const h = (m.height * scale) + 'px';
     const idx = Number(m.index);
     const slot = mode === 'individual' ? monitorSlot(idx) : monitorSlot(prim);
     const assigned = mode === 'none' ? '' : slot.key;
@@ -297,8 +311,7 @@ function renderWorkspace(list) {
          </select>`
       : '';
     return `<div class="monitor ${m.primary ? 'primary' : ''} ${state.editingMonitor === idx && mode === 'individual' ? 'sel' : ''}"
-                 data-mon="${idx}" data-name="${name}"
-                 style="left:${left};top:${top};width:${w};height:${h}">
+                 data-mon="${idx}" data-name="${name}">
       <div class="m-canvas" data-mon="${idx}"></div>
       ${m.primary ? '<span class="m-badge">principal</span>' : ''}
       ${assigned ? `<button class="m-del" data-del="${idx}" title="Quitar de esta pantalla">✕</button>` : ''}
@@ -309,6 +322,10 @@ function renderWorkspace(list) {
       ${fitSel}
     </div>`;
   }).join('');
+
+  // Geometría con el tamaño real de la ventana (antes se calculaba una sola
+  // vez al pintar: al maximizar, el preview se quedaba con el tamaño viejo).
+  layoutWorkspace(list);
 
   list.forEach((m) => {
     const idx = Number(m.index);
@@ -904,7 +921,19 @@ function removeFromMonitor(index) {
   document.addEventListener('dragstart', (e) => {
     if (state.dragging) e.preventDefault();
   });
-  window.addEventListener('resize', () => { repositionAll(); });
+  // Al cambiar el tamaño de la ventana (maximizar, restaurar) hay que
+  // recalcular las cajas y recolocar los medios: sólo con repositionAll se
+  // usaba el tamaño viejo del lienzo y el preview no se actualizaba.
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      const list = state.monitors || [];
+      if (!list.length) return;
+      layoutWorkspace(list);
+      repositionAll();
+    }, 120);
+  });
 
   $$('[data-dmode]').forEach((b) => {
     b.onclick = () => {

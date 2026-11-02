@@ -25,6 +25,12 @@
   «fill») y volviendo al fichero único.
 - **APK**: con targetSdk 36 la barra inferior quedaba bajo la barra de
   navegación; `navigationBarsPadding()` en el `bottomBar`. APK subida a TCloud.
+- **Bug de geometría en Pantallas**: al maximizar/restaurar la ventana el
+  preview no se recolocaba (la geometría se calculaba sólo al pintar). Ahora
+  layoutWorkspace se recalcula en 
+esize (debounce) sin recrear los medios.
+- **Limpieza**: ToDo reescrito (sin duplicados), ID del chat de Telegram fuera
+  de docs/AGENTS/skills (sólo en .tcloud.env) y APK verificada por el usuario.
 ## Sesión 2026-11-01: cola de miniaturas por plugin
 
 - Cola FIFO por proveedor con 12 workers globales y máximo 2 por plugin,

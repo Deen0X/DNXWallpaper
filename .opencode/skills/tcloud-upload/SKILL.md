@@ -20,7 +20,7 @@ description: Sube APKs a TCloud/Telegram en streaming, con caption y registro de
 
 ## Destino
 
-- Chat `-1004423392613`; tema `8` (debug y release).
+- Chat y tema: los de `.tcloud.env` (`TCLOUD_CHAT`, `TCLOUD_TOPIC`).
 - APK por defecto:
   `appcompanion\DnxCompanion\app\build\outputs\apk\debug\app-debug.apk`.
 - Caption: changelog breve + fecha + `sha256:<12>`.

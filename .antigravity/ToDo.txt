@@ -1,582 +1,146 @@
 ﻿# Project ToDo — DNXWallpaper v3
 
-> Plan completo: `docs/implementation-plan.md` (2026-10-28).
+> Producto: **DNXWallpaper v3**. Sin Steam/Workshop.
+> Repo: https://github.com/Deen0X/DNXWallpaper (release **v3.0.0**).
 > Regla: no marcar `[x]` sin build y prueba (manual o autotest).
-> Producto: **DNXWallpaper v3**. Sin Steam/Workshop/DLC/EULA.
 
 ---
 
-## Completado (2026-10-28) — Fase 0: cimientos
+## Estado (2026-11-02)
 
-- [x] **0.1 Renombrar a DNXWallpaper v3 (visible e interno)**
-      Exes: `DNXWallpaper.exe`, `DNXWallpaper.Motor.exe`, `DNXWallpaper.UI.exe`.
-      Log `dnxwallpaper.log`; mutex/eventos/clases `dnxWallpaperV3*`; título y
-      bandeja; locales/scripts; app Android y manifiesto. Exes viejos retirados
-      de `dist`. La carpeta histórica `evidence/` conserva el registro de REA.
-- [x] **0.2 Auditoría Steam/Workshop (limpieza visible)**
-      Título sin "Steam Edition", icono de Plugins (plug), botón del editor
-      oculto, textos visibles de descarga/estado/tray neutralizados, valores de
-      locales limpiados. Bridge del editor de escenas eliminado (`editorObject`).
-      *Pendiente 3.3*: borrar el bundle Angular y los métodos/shims internos de
-      Steam/Workshop que aún usa la UI vieja.
-- [x] **0.3 Snapshot del catálogo**
-      `res/cache/catalog.json` (4.719 ítems, ~3,7 MB) cargado antes de arrancar
-      el servidor LAN. `/api/library` y `/api/info` responden al instante tras
-      arranque en frío. Verificado.
-- [x] **0.4 Renderer GL del `VideoWallpaperService`**
-      ExoPlayer → SurfaceTexture → EGL/GLES. Modos `cover` (defecto), `fit` y
-      `stretch`; selector en la app; preferencia global `fit`. APK 12,92 MB.
-      Probado en emulador: cover sin deformar y fit con bandas.
-- [x] **0.5 `?m=1` y proxy asíncrono**
-      `HEAD` no genera (409 si falta); job ffmpeg con `-progress`, estado en
-      `/api/proxy/<key>` y cancelación en `/api/proxy/<key>/cancel`. Probado:
-      proxy de 38,2 MB → 8,7 MB con progreso; cancelación limpia sin `.part`.
-- [x] Regla de firewall privada para `DNXWallpaper.UI.exe` (puerto 8477).
-      La app móvil puede conectar en la LAN doméstica.
+Windows y Android publicados y funcionando:
 
-## Completado (2026-10-28) — TCloud, Wallsflow y APK sin cámara
-
-- [x] **Plugin Wallsflow**: `dist/plugins/wallsflow` (scraper HTML, cache,
-      list/detail/thumb/fetch/health/categories). Catálogo con 600 ítems;
-      `/api/item` y `/api/thumb` responden. **Preview-only**: el `fetch` baja
-      el preview 720p/10s; el 4K está detrás de Cloudflare/login.
-- [x] **APK vídeo local**: botón `Elegir vídeo del dispositivo` (SAF
-      `video/*`); copia a `filesDir/current.mp4` y aplica. Descarga con mensaje
-      de error detallado y timeout de 300 s. Subida msg 11.
-- [x] **FydeOS/ChromeOS**: detección de selector de fondos animados ausente;
-      mensaje claro en vez de crash. `isWallpaperSupported`/`isSetWallpaperAllowed`
-      para imágenes. Subida msg 12.
-- [x] **APK sin cámara**: campo URL + botón `Pegar URL`; cámara marcada como
-      no requerida en el manifiesto fusionado. APK 12,92 MB probada en emulador.
-- [x] **TCloud**: `.tcloud.env` (gitignored), `tools/tcloud_upload.py`,
-      `tools/upload_apk.ps1/.cmd`, comando `/upload-apk`, skill
-      `tcloud-upload` y sección en `AGENTS.md`. APK debug subida al chat
-      `-1004423392613`, tema 8: **msg_id 10**,
-      https://t.me/c/4423392613/8/10.
-- [ ] **Fase 1**: editor de dispositivos. Pendiente de la prueba del APK sin
-      cámara por el usuario.
-
-### Pendiente de 0.2 (se hará en Fase 3.3)
-- [ ] Borrar el bundle Angular, sus locales y el CSS de ocultación.
-- [ ] Eliminar los métodos/shims de Steam/Workshop del bridge (hoy necesarios
-      para que la UI vieja arranque).
-- [ ] Eliminar las carpetas de evidencia/prototipo históricas si se decide.
+- Release v3.0.0 con `DNXWallpaper-v3-win64.zip` + APK como assets.
+- Motor con **un vídeo por pantalla** (asignación real por monitor).
+- Descarga de medios delegada en `fetch` de cada plugin.
+- APK probada por el usuario: catálogo, búsqueda y fondo OK.
 
 ---
 
-## Fase 1 — editor de dispositivos (en curso, 2026-10-28)
+## Pendiente priorizado
 
-> Especificación y estado: `docs/device-editor.md`.
+### P1 — Escritorio
+- [ ] **Playlist por monitor**: cada celda ya tiene su decodificador; falta que
+      la rotación sea independiente por pantalla y que use los vídeos
+      optimizados (hoy rota un fichero para toda la superficie).
+- [ ] **Modo Mosaico** (idea): varios wallpapers en cajas dentro de una misma
+      pantalla. El motor ya dibuja N vídeos en cajas (`displays[]` con
+      rectángulos propios, probado con 2 vídeos en 1 monitor). Falta:
+      - UI para definir rejilla / cajas arrastrando divisiones.
+      - Asignar un wallpaper a cada celda; imagen o vídeo por celda.
+      - Transición/borde opcional por celda.
+      - Persistir por monitor (`settings.displays.mosaic`).
+      - Atajo "pared de vídeos" NxM (mismo wallpaper repetido o distinto).
+- [ ] **Worker Python persistente** (contrato v3 con `serve`): el arranque
+      (~90 s de escaneo) y el barajado (~26 s) lo necesitan. Sin `serve` no
+      hay proceso permanente.
+- [ ] **Zoom/paneo reales en el motor**: hoy el encuadre manual se resuelve
+      componiendo con ffmpeg; con asignación por monitor se puede hacer en la
+      celda (el shader ya tiene `g_Crop`).
 
-### Hecho (hito 1)
-- [x] Backend `editor_export`: probe (ffprobe), export (crop/escala/HDR→SDR/
-      fade A), progreso, cancelación y póster.
-- [x] `res/mobile/<id>.mp4/.jpg/.json`; `/m/<id>` con Range; `/api/mobile/<id>`.
-- [x] API `/api/editor/current|info|file|export|status|cancel` y `/api/editor/lan`.
-- [x] Página `dist/res/editor/` (servida por la app): fuente, viewport con
-      tiradores, aspect/orientación/custom, resolución objetivo, calidad,
-      fade, perfiles, resultado y QR.
-- [x] App Android: soporte `/m/` (metadatos + descarga directa) y filtro de
-      intent `/m/`. Probado con una exportación 332×720.
-- [x] APK msg 13/14/15 subidas a TCloud; msg 14 corrige el falso negativo de
-      `resolveActivity`; msg 15 muestra el error de red real.
-- [x] **Flujo validado por el usuario**: editor → QR → app → aplicar fondo.
-- [x] Editor con pestañas Configurar / Vídeo generado; QR en la pestaña de
-      resultado; layout de altura fija.
-- [x] App: botón "Quitar fondo (restaurar predeterminado)" (`WallpaperManager.clear`).
-      APK msg 16; msg 17 añade fallback estático si `clear()` no desactiva
-      un fondo animado (probado en emulador).
-- [x] **Fondo anterior**: copia del vídeo aplicado por DNXWallpaper
-      (`prev_video.mp4`) o del fondo estático del sistema (`prev_static.png`,
-      solo Android <= 12). Botones "Guardar actual" / "Restaurar". APK msg 18.
-      En Android 13+ el sistema no permite leer el fondo estático, así que
-      "Guardar actual" abre el selector de imágenes para elegir el fondo
-      que se tenía (y se restaura como `prev_static.png`). Se restaura la
-      copia más reciente; la etiqueta muestra tipo y fecha. APK msg 19.
-- [x] Acceso desde la bandeja: "Adaptar a dispositivo…" abre el editor con el
-      fondo actual (`?file=`); `tools.json` creado.
+### P2 — App Android
+- [ ] **Mini editor de encuadre** que mande el `rect` al PC.
+- [ ] **Marcar `persist`** al subir desde el companion.
+- [ ] Distinguir "ya descargado" en la biblioteca (aplicar directo / borrar
+      para redescargar).
+- [ ] Aviso al añadir ficheros locales por encima del tope.
+- [ ] Confirmar en un segundo dispositivo (fondo animado + GL).
 
-### Pendiente
+### P3 — Editor de dispositivos
+- [ ] Botón "Móvil/Herramientas" en la UI de escritorio que abra el editor
+      con el fondo seleccionado.
 - [ ] Host EXE `device-export` + `dxcore` + `tools.json` (la página ya funciona
       servida por la app; falta el envoltorio de escritorio).
-- [ ] Botón “Móvil/Herramientas” en la app de escritorio para abrir el editor
-      con el fondo seleccionado.
-- [ ] Cuadrado universal, imán fino y perfiles persistentes.
-- [ ] Probar HDR real y fade con un clip largo.
-- [ ] Promover a Fase 2 la biblioteca del móvil.
-- [ ] Host CEF de la herramienta (una instancia; se cierra al terminar).
-- [ ] UI: preview + viewport (cover/contain), orientación, aspect + custom,
-      resolución objetivo, calidad, cuadrado, fade, perfiles.
-- [ ] Snap al borde con Ctrl/Shift/Alt; centrar/reset/flechas.
-- [ ] Pipeline ffmpeg: crop/escala, HDR→SDR, fade A, póster, WebP animado.
-- [ ] `exports.json`, `/m/<id>`, `/api/mobile/<id>`, QR, nombre legible, Range.
-- [ ] Caché por hash, progreso, cancelación, limpieza.
-- [ ] Perfiles genéricos (no marcas): vertical/horizontal, aspect, lado corto,
-      calidad, fade, cuadrado.
-- [ ] Criterio: 4K 16:9 → 9:19.5 720p/1080p con cover, aplicado en el móvil
-      sin deformar y servido por QR.
+- [ ] Perfiles persistentes, cuadrado universal e imán fino (snap con
+      Ctrl/Shift/Alt, centrar/reset/flechas).
+- [ ] Probar HDR real y fundidos largos con un clip largo.
+
+### P4 — Producto / UI
+- [ ] **Fase 3.3**: borrar el bundle Angular (`dist/ui`), sus locales y el CSS
+      de ocultación; eliminar los shims de Steam/Workshop del bridge; cerrar la
+      marca v3.
+- [ ] Icono de Plugins monoline y lightbox del preview (clic para ampliar).
+- [ ] Config de plugins por formulario (`config.mode=form`; `paths`, `url`…).
+- [ ] Servicio de transcodes por (fuente, params) y export animado WebP.
+- [ ] Fase 4: overlays (DirectWrite: texto, reloj, clima, ping, RTSS, HWiNFO).
+- [ ] Fase 5: plugins Web (CEF), Aplicación (WGC) y Telegram.
+- [ ] Fase 6: generador externo (presets HLSL + ffmpeg).
+- [ ] Fase 7: i18n (claves + JSON por idioma; app con `strings.xml`).
+
+### P5 — Infra
+- [ ] Token de emparejamiento por QR (hoy fijo en `mobile.json`).
+- [ ] Flags `--port`, `--data-dir`, `--no-ui`.
+- [ ] `Dockerfile` + `docker-compose.yml` con ffmpeg estático.
+- [ ] Retirar el plugin `local` cuando el flujo de fichero local del cliente
+      esté completo.
+- [ ] Repetir release (zip + APK) cuando haya cambios: `tools\make_release.ps1`
+      y `docs/release.md`.
+
+### P6 — Verificación / riesgos
+- [ ] **HDR real** en monitor HDR (`render: HDR activo (16F + PQ Rec.2020)`).
+- [ ] **Puntos 2 y 7** de `docs/verificacion-pendiente.md` antes de borrar los
+      shims de Steam.
+- [ ] `plugin.exe` (.NET) puede sacar un diálogo modal si se le mata a mitad
+      de comando (bloquea el escritorio).
+- [ ] Items de `mylivewallpapers` con 4K `.mlw`: revisado, no hay versión de
+      escritorio publicada; el plugin cae al preview. Sin acción.
 
 ---
 
-## Fase 2 — App companion (3–4 semanas)
+## Completado (resumen)
 
-> Plan: `docs/companion-plan.md`.
+### 2026-11-02
+- [x] **Repo + release v3.0.0**: código fuente (solo fuentes), zip de Windows
+      (207 MB) y APK como assets descargables. `.tcloud.env`, `res/config`,
+      cachés, medios y `config.json` de plugins fuera del repo.
+- [x] **Asignación real por monitor** en el motor: `current.json` → `displays[]`,
+      una textura y un decodificador por celda, ajuste/recorte por pantalla.
+      Se usa con 2+ pantallas, Individual/Clonar y «Sin fundido» (0,2 s, sin
+      ffmpeg). Verificado con 2 vídeos repartidos en un monitor.
+- [x] **Descarga por el plugin**: `FetchRemoteMediaSync` usa `fetch --id --out`;
+      HTTP directo sólo como respaldo. Preview animado con `fetch --kind preview`.
+- [x] **Validación del medio descargado** (`MediaFileLooksValid`): los CDN que
+      devolvían HTML ya no rompen ffmpeg; se descarta y se reintenta.
+- [x] **stderr de plugins** capturado (`[dl] plugin <id> stderr: ...`).
+- [x] **`local exit=2`**: `--cache-dir` sólo a plugins del contrato v2.
+- [x] **APK**: `navigationBarsPadding()` en la barra inferior (targetSdk 36 va
+      a sangre). Probada por el usuario.
+- [x] **Preview de Pantallas al redimensionar**: la geometría se recalcula al
+      cambiar el tamaño de la ventana (antes se quedaba con el tamaño viejo).
+- [x] **ToDo limpio** y `docs/tcloud-upload.md` sin el ID del chat.
 
-### F4 — Biblioteca local
-- [ ] Índice JSON (`library.json`) + ficheros en `filesDir`; sin Room.
-- [ ] `id = SHA-256`; dedupe; póster; metadatos; `lastApplied`.
-- [ ] Grid + preview superior (un solo ExoPlayer) + filtros + info.
-- [ ] Aplicar / eliminar / guardar en Descargas / enviar al PC.
-- [ ] Si ya está descargado, aplicar directo; borrar para redescargar.
-- [ ] Añadir desde el dispositivo con SAF.
-- [ ] WebP animado en el grid con límites (visibles, 3–6 s, 320–480 px,
-      pausa al scroll); fallback estático en API < 28.
+### 2026-11-01
+- [x] Cola de miniaturas por proveedor (12 workers, 2 por plugin, backoff,
+      cuarentena), `/api/thumb/prefetch` y prefetch de las tarjetas visibles.
+- [x] `/api/thumb` responde en ~0,5 s; ya no bloquea.
+- [x] Barajado en paralelo: 26 s → 5,8 s; no vacía el catálogo.
+- [x] Búsqueda en dos niveles con Enter (local + plugins) y cancelación por
+      secuencia; estado del selector al reabrir (filtro, texto, scroll).
+- [x] Placeholder con pulso del icono; barra de 2 px de descarga en el visor.
 
-### F5 — Subida y descubrimiento
-- [ ] `POST /api/upload` en el escritorio (token, límite, ffprobe).
-- [ ] Guardar en `res/imported/`, thumb, biblioteca local, refresco UI.
-- [ ] App: subir al PC con progreso; `ACTION_SEND` (`video/*`).
-- [ ] Descubrimiento UDP (7884 o el definido); pareado por QR sigue siendo el rápido.
-- [ ] Streaming de preview remoto (`/dl?m=1`) para decidir antes de descargar.
-- [ ] Consumir `/m/<id>` y `/api/mobile/<id>`.
-
-### F6 — Fit y parallax (si no se cerró en Fase 0)
-- [ ] Fit por wallpaper en la app; on/off de parallax.
-- [ ] Solo master cuadrado; sin control de intensidad (offsets del sistema).
-- [ ] Degradar si el launcher no envía offsets.
-
----
-
-## Fase 2.5 — Escritorio: propiedades, multi-monitor y screensaver (2–3 semanas)
-
-- [ ] **Propiedades por wallpaper**: fit, volumen, velocidad y color
-      (brillo/saturación); persistencia por instalación.
-- [ ] **Multi-monitor**: clone / span / independent; una ventana + N viewports;
-      playlist por monitor en independent; opción “ninguno” por monitor; DPI.
-- [ ] **Screensaver**: UI de comprobar/instalar, diálogo de Windows, prueba `/s`.
-- [ ] Criterio: dos monitores con los tres modos; fit/volumen por wallpaper.
-
----
-
-## Fase 3 — UI nueva (8–12 semanas)
-
-> Análisis y diseño: `docs/ui-redesign.md`.
-
-- [ ] 3.0 Tokens DNX, shell (titlebar/sidebar/router), Ajustes.
-- [ ] 3.1 Biblioteca + plugin local + Plugins/config + Inicio; hover con
-      vídeo en miniaturas (donde haya `videopreviewurl`).
-- [ ] 3.2 Descubrir + Reproducción + Pantallas + Herramientas.
-- [ ] 3.3 Extras UI; borrar UI vieja/Angular/Steam; cerrar marca v3.
-- [ ] Icono de Plugins monoline (no Steam).
-- [ ] Config de plugins por formulario (`config.mode=form`; `paths`, `url`, etc.).
-- [ ] Lightbox del preview (clic para ampliar).
-- [ ] i18n con claves desde el día 1 (es/en; ver Fase 7).
-
----
-
-## Fase 4 — Extras/overlays (2–4 semanas)
-
-- [ ] Capa de composición sobre el wallpaper (debajo de iconos; no clicable).
-- [ ] DirectWrite: texto, barra, sparkline, icono; 1 Hz; caché de layout.
-- [ ] Proveedores: ping, RTSS, HWiNFO, CPU/RAM/GPU, now playing, reloj, clima,
-      HTTP JSON.
-- [ ] Config: fuente, posición, tamaño, color, opacidad, fondo; por monitor.
-- [ ] Criterio: widget de ping + widget de RTSS visibles.
-
----
-
-## Fase 5 — Plugins nuevos (4–8 semanas)
-
-- [ ] **Web** (helper CEF): URL + selector CSS + zoom + mute + recarga + fondo;
-      sandbox; sin YouTube por ahora.
-- [ ] **Aplicación** (WGC): captura en vivo de una ventana; ventana/proceso,
-      fps, cursor, fit; avisos de apps protegidas/minimizadas.
-- [ ] **Telegram** (catálogo): cuando el servicio del usuario esté listo;
-      endpoint/token/canal; `list/detail/fetch`; caché.
-- [ ] Iconos y configuración en la UI nueva.
-
----
-
-## Fase 6 — Generador (4–8 semanas)
-
-- [ ] Herramienta externa (misma arquitectura que el editor).
-- [ ] Presets D3D11/HLSL + ffmpeg: partículas, tintes, zoom/pan, light leaks,
-      blur, VHS.
-- [ ] Master cuadrado/16:9 con fade; audio offline opcional.
-- [ ] Integración con el editor de dispositivos.
-- [ ] Herramientas del usuario: sin formatos propietarios.
-
----
-
-## Fase 7 — Localización (2–4 semanas)
-
-- [ ] Analizar la idea de implementación del usuario.
-- [ ] Claves de la UI nueva + JSON por idioma; selector en Ajustes.
-- [ ] es/en primero; resto después.
-- [ ] App: `strings.xml`.
-- [ ] Detectar claves faltantes en build.
+### 2026-10-30 y anteriores
+- [x] Editor de escritorio: modos Individual/Clonar/Panorámico/Ninguno, zoom y
+      paneo, ⟲ por monitor, un único Aplicar, firma del plan.
+- [x] Composición `/api/compose` con recorte real, bandas negras y crossfade;
+      caché de celdas, preparación en segundo plano, barra de progreso real.
+- [x] Playlist real en el motor y salvapantallas instalable desde la UI.
+- [x] Fase 1: editor de dispositivos (`/editor/`, `/m/<id>`, QR) y app Android
+      con descarga, fondo animado, favoritos y biblioteca del PC.
+- [x] Fase 0: renombrado a DNXWallpaper v3, snapshot del catálogo, renderer GL
+      de Android, proxy 1080p asíncrono y regla de firewall 8477.
+- [x] Plugins v2 (Python): local, pixabay, wallhaven, wallsflow, wikimedia,
+      moewalls, motionbgs, mylivewallpapers, wallpaperwaifu, lively.
+- [x] Catálogo con filtros de tipo/orientación/resolución y dimensiones
+      persistidas; recarga profunda (`/api/library/refresh`).
 
 ---
 
 ## Decisiones cerradas (no reabrir sin motivo)
 
-- Producto **DNXWallpaper v3**; eliminar Steam/Workshop/DLC/EULA.
-- UI: reescritura por fases (Svelte + Vite + TS, DNX UI Style, Lucide, Mica).
+- Producto **DNXWallpaper v3**; eliminar Steam/Workshop.
+- UI nueva en `/ui2/` (HTML/CSS/JS sin build); la Angular antigua se retira.
 - Biblioteca = plugin local; `mock` retirado.
-- Plugins: `catalog` (CLI), `wallpaper` (nativo/helper), `extras` (datos + widgets).
-- Web sin YouTube; aplicación como plugin WGC; Telegram cuando el servicio esté.
-- Extras/overlays: sí; ping/RTSS/HWiNFO/CPU/GPU/now playing/reloj/clima.
-- Companion: editor externo, `/m/<id>`, cover por defecto, `stretch` opcional,
-      target lado corto, cuadrado opcional, fade A, HDR→SDR, póster + WebP.
-- App: biblioteca JSON, dedupe hash, solo imagen/vídeo, GL fit, subida al PC,
-      minSdk 26 con fallback.
-- Multi-monitor: clone / span / independent; playlist por monitor en independent.
-- Descartados: audio reactivo, presets, captura, play-in-window, escenas runtime.
-- Mini modo: parked; se revisa después.
-- Generador: herramienta externa; presets propios + herramientas del usuario.
-
----
-
-## Bloqueos / verificación
-
-- [ ] **HDR real**: validar en monitor HDR (`render: HDR activo (16F + PQ Rec.2020)`).
-- [ ] **Dispositivo Android**: probar biblioteca, subida y GL en un móvil real.
-- [x] **Firewall 8477**: regla privada para `DNXWallpaper.UI.exe`; falta
-      probar desde el móvil en la misma Wi-Fi (sin aislamiento de clientes).
-- [ ] **Punto 2 y 7** de `docs/verificacion-pendiente.md` (mensajes al cambiar
-      filtro y primer frame) antes de borrar los shims de Steam.
-- [ ] **HDR/calidad** en un equipo con monitor HDR y GPU compatible.
-
----
-
-## Bugs conocidos
-
-- [ ] `plugin.exe` (.NET) muestra un diálogo modal “Error de la aplicación” si se
-      le mata a mitad de comando; puede bloquear el escritorio.
-- [x] `?m=1` en HEAD/proxy asíncrono (0.5): HEAD no genera; job con progreso y cancelación.
-- [x] El vídeo 16:9 se estiraba en el `WallpaperService` (0.4): GL cover/fit/stretch.
-- [ ] La app no distingue aún “ya descargado” en la biblioteca (F4).
-- [x] El catálogo tarda 40–60 s tras arranque en frío (0.3): snapshot instantáneo.
-
----
-
-## Completado (histórico)
-
-- [x] Launcher sin Steam; motor D3D11 + DirectComposition detrás de iconos.
-- [x] Vídeo (MF) e imagen (WIC), bucle, pausa; playlist + crossfade.
-- [x] Optimizaciones (fps, pausas, batería, fullscreen, bloqueo).
-- [x] Calidad de decodificación + HDR (16F/PQ); ajustes en Ajustes.
-- [x] Catálogo de plugins, descargas concurrentes, thumbs, filtros, búsqueda.
-- [x] 7 fallos de uso cerrados (`docs/verificacion-pendiente.md`).
-- [x] Mini modo, bandeja completa, settings real, recientes.
-- [x] Screensaver en el motor + instalador (UI parcial).
-- [x] Servidor LAN (`/api/info`, `/api/library`, `/api/thumb`, `/dl`, `/api/item`).
-- [x] QR en el preview (se retirará con el editor externo).
-- [x] Companion APK: QR vertical, descarga con progreso, imagen y vídeo animado
-      (ExoPlayer + proxy 1080p).
-- [x] Metadatos sin descargar (`/api/item`) y `HEAD` sin descarga.
-- [x] **Fase 1 · hito 2**: `device-editor.exe` (Win32) arranca la app si
-      hace falta y abre `/editor/` en ventana Edge `--app` con el fondo
-      actual. Bandeja y `tools.json` lo lanzan.
-- [x] El editor acepta rutas absolutas (fondo fuera de `res\`) sólo
-      desde 127.0.0.1; desde la LAN se sigue exigiendo `res\`.
-- [x] **UI principal**: el botón "Mobile/Mobile devices" pasa a
-      "Adaptar a dispositivo" y abre `device-editor.exe`
-      (`window.ui.openDeviceEditor`); elimina el aviso
-      "Installation Incomplete".
-- [x] **Fase 2 (parcial)**: biblioteca del PC en la app Android
-      (`/api/library` + `/api/thumb`), base recordada, APK msg 20.
-- [x] **Descubrimiento UDP 7884** (`WPX/Ping`) y botón "Buscar PC" en la
-      app. APK msg 21.
-- [x] Nota: el "topmost" de la ventana principal era de una prueba
-      automatizada (SetWindowPos HWND_TOPMOST), no una función del producto.
-- [x] **Rediseño de la app** (3 pestañas + tema oscuro + filtros). APK msg 22.
-- [x] Iconos unificados desde `resources/` (`tools/sync_icons.py`).
-- [x] **Rediseño v2**: catálogo local, favoritos, ajustes y editor de
-      encuadre en el móvil. APK msg 23.
-- [x] Icono de la ventana principal = icono del EXE (WM_SETICON).
-- [ ] Aviso al añadir ficheros locales > tope; probar versión móvil y
-      original desde Remoto.
-- [ ] Catálogo: filtrar por tamaño/orientación y versión móvil por
-      defecto; biblioteca local con borrado.
-- [ ] Mini editor de encuadre en Android (manda el rect al PC).
-- [ ] Pulido del editor: cuadrado universal, imán fino, perfiles
-      persistentes, HDR real y fades largos.
-- [x] Plugins: `--sort newest`, caché por página (24 h), purga de plugins
-      deshabilitados.
-- [x] Plugin **Local** (carpetas, recursivo, vídeo+imagen, miniaturas ffmpeg).
-- [x] **Interfaz nueva**: prototipo en `/ui2/` (sidebar + catálogo modal).
-- [x] Exponer monitores, salvapantallas y playlist por HTTP para la UI nueva.
-- [ ] Reintentar subida de APK a TCloud (se quedó al 0 %).
-
-- [x] `/api/info` con firma de producto + `/api/net/interfaces`.
-- [x] Puerto con reintento y persistencia (`res/config/server.json`).
-- [x] UI `/ui2/`: sección Conexión (checkboxes de interfaces + QR).
-- [x] Placeholder de miniaturas ausentes + contador de catálogo.
-- [ ] Flags `--port`, `--data-dir`, `--no-ui` (uso como servicio/contendor).
-- [x] UI: monitores reales + aplicar (`/api/monitors`, `/api/apply`, `/api/current`).
-- [ ] Asignación por monitor (el motor aplica uno por equipo hoy).
-- [x] Subida con `persist` + provider `uploads` (verificado, con limpieza).
-- [ ] Marcar `persist` desde el companion Android.
-- [ ] Cache de transcodes por (fuente, params).
-- [ ] `Dockerfile` + `docker-compose.yml` + ffmpeg estático embebido.
-- [ ] Export animado WebP (nivel 1 de compatibilidad).
-- [ ] Token de emparejamiento por QR (hoy el token es fijo en mobile.json).
-- [x] Plugins v2 (Python) integrados en el host: runtime, cache por plugin,
-      invalidacion por version, respaldo de fetch/thumb al plugin.
-- [x] Pixabay con API key configurada (500 items).
-- [ ] Retirar el plugin `local` cuando el flujo de fichero local del cliente
-      este completo.
-- [ ] Arranque: valorar un worker Python persistente (hoy ~70 s de escaneo).
-- [x] Export de item remoto sin descargar (el servidor baja el medio antes).
-- [x] Preview animado: WebP en la ficha remota y ExoPlayer en la local.
-- [x] El recorte reemplaza al item del mismo origen (no duplica) y regenera
-      la miniatura; limpieza de duplicados antiguos.
-- [x] Preview de vídeo local sin deformar (aspecto real + altura máxima).
-- [x] El fondo animado recarga el vídeo cuando cambia `current_path`.
-- [x] Tras generar, se abre la ficha del item para aplicar de inmediato.
-- [ ] Confirmar en dispositivo real que el fondo cambia al aplicar otro vídeo.
-- [x] Local muestra solo wallpapers preparados; los imports no se listan y se
-      purgan (verificado con una entrada falsa).
-- [x] "Añadir wallpaper" (vídeo) va directo al editor en vez de quedarse como
-      item suelto.
-- [x] Editor: preview sin deformar (dimensiones reales del drawable) y
-      recortado al viewport.
-- [x] Servidor: rellenar width/height de los items cuando el medio ya está
-      descargado (probe con ffmpeg).
-- [x] Añadir wallpaper local: abre la ficha del item (aplicar u optimizar).
-- [x] `busy` se libera con try/finally (el botón ya no se queda bloqueado).
-- [x] Boton barajar (pagina aleatoria por plugin).
-- [x] Filtros con emoji (no parten linea, no hay que traducir).
-- [x] Cabecera con icono 48 dp; nombre del PC sin recortar.
-- [x] Ficha local: Establecer fondo + estrella (favorito) + pin (fijo).
-- [x] Quitado "Quitar fondo (restaurar predeterminado)" de Ajustes.
-- [ ] Worker Python persistente: el barajado (26 s) y el arranque (75 s) lo
-      necesitan para ser usables.
-- [x] Catalogo intercalado por plugin (filtros con datos reales).
-- [x] Imagenes y vertical filtran de verdad (dimensiones del plugin).
-- [x] Selector de plugin (🧩) + toast al elegir filtro.
-- [x] "Cargar mas" ya no queda bajo la barra de navegacion.
-- [x] Favorito/pin se reflejan al instante en la ficha.
-- [x] Playlist real (formato del motor) con anadir/quitar desde la UI.
-- [x] Salvapantallas persistente (activado, espera, wallpaper elegido).
-- [x] Seccion Plugins en la UI: activar/desactivar.
-- [x] Interfaz nueva como ventana principal (interruptor ui.json).
-- [x] Salvapantallas: que el motor lo use de verdad (leer settings.json).
-- [x] Playlist: que el motor la active (hoy solo se guarda).
-- [x] Catálogo como visor (ya no aplica al pulsar) + filtros en el selector.
-- [x] Botón Aplicar (pendiente) y Descartar.
-- [x] Optimizador en Pantallas: arrastrar/zoom, fundido, recorte y aplicar.
-- [x] Modos con composición de 3 monitores; ✕ por monitor.
-- [x] Arreglado el export: memoria (commit), flags de ffmpeg, proxy 1080p.
-- [ ] Zoom/centrar reales en el motor (renderer).
-- [ ] Modo individual/panorámico de verdad (asignación por monitor en el motor).
-- [x] Editor de escritorio: preview por monitor con fit + zoom/pan; Aplicar
-      unico que compone (servidor /api/compose) y aplica.
-- [x] Estado por monitor persistido (key/fit/rect); base = principal.
-- [x] Guarda en `/api/settings`: no reescribe `playback.json` ni avisa al motor
-      si el ajuste no cambia (seleccionar o cambiar de modo ya no reaplica).
-- [x] `loadSettings` conserva `displays.perMonitor` (antes se perdía y el
-      siguiente guardado la borraba del fichero: el preview salía vacío).
-- [x] Los ítems `optimized:` (escritorios compuestos) se resuelven en disco y
-      ya no se podan al arrancar; sobreviven al reinicio.
-- [x] El recorte (zoom/pan) llega a ffmpeg: `crop` de la región antes de
-      escalar (antes se ignoraba y aplicaba el encuadre por defecto).
-- [x] Panorámico real: un vídeo mapeado al escritorio virtual completo (cover/
-      stretch/contain), no una celda por monitor; preview con el trozo de cada
-      monitor y recorte global al panear.
-- [x] Modo "ninguno": compone negro a tamaño del escritorio (quita el fondo).
-- [x] Preview: degradación en cadena vídeo → imagen → miniatura → aviso. Antes
-      siempre se creaba un `<video>`, así que las imágenes del catálogo (~19 %),
-      los códecs no soportados por CEF y los medios que fallan al descargar
-      salían en negro. Se guarda el tipo en la asignación y hay póster mientras
-      carga.
-- [x] Composición serializada (un ffmpeg a la vez): dos clics en Aplicar ya no
-      lanzan dos procesos y no se puede quedar sin memoria.
-- [x] Ajuste por pantalla en Individual (selector dentro de cada monitor); en
-      Clonar/Panorámico queda el ajuste único de la barra.
-- [x] Autoplay de todos los vídeos del preview (`autoplay-policy` en CEF) y
-      `play()` explícito con reintento tras el primer clic.
-- [x] `/dl?p=1`: copia 540p cacheada en `res\cache\preview` para la vista previa
-      (la UI va sin GPU: dos 4K en software no se sostienen).
-- [x] Vista previa en **WebP animado** (`/api/preview/<key>`, 480 px, 12 fps,
-      6 s, cacheado): se decodifica como imagen, se repite solo y no compite por
-      el decodificador de vídeo. Cadena: WebP → vídeo 540p → miniatura.
-- [x] Zoom/arrastre sin parpadeo: se recoloca el medio existente
-      (`repositionAll`) en vez de recrear el elemento en cada paso.
-- [x] Pan fuera del borde con bandas negras; con **Ctrl** no sale del vídeo.
-      La composición recorta lo visible y rellena de negro el resto.
-- [x] Zoom por monitor en Individual (verificado: el otro monitor no cambia).
-- [x] Fundido de bucle (crossfade real): se solapa el final con el principio, el
-      bucle es continuo y el clip dura `duración − fundido`. Selector "Bucle" en
-      la barra (Sin fundido / 0,5 / 0,8 / 1,5 s). Verificado: 10,0 s → 9,2 s y
-      primer/último fotograma casi idénticos.
-- [x] Ajustar (panear) con el **botón central**; el izquierdo selecciona (un
-      arrastre ya no abre el selector), el derecho no abre el menú contextual y
-      no se selecciona texto al salir del mapa.
-- [x] Casilla "Menor resolución" al clonar: compone a la resolución del monitor
-      más pequeño (menos disco y CPU).
-- [x] Cola de preparación en segundo plano: al asignar un wallpaper su celda se
-      genera con prioridad (`/api/prepare`), se cancela al panear/zoomear y la
-      composición reutiliza la celda cacheada (`res\cache\cells`).
-- [x] Barra de avance al Aplicar (`/api/progress`): porcentaje real de ffmpeg.
-- [x] Un solo ffmpeg pesado a la vez (preparación, composición y vistas previas
-      comparten cerrojo): dos decodificaciones 4K simultáneas tumbaban la UI.
-- [x] Estado "aplicado" con firma del plan: volver al mismo encuadre/modo no
-      marca cambios y Aplicar no regenera nada (reutiliza lo que ya existe).
-- [x] Arreglado el cierre del proceso al componer: ffmpeg heredaba sockets y
-      handles de CEF (bInheritHandles a secas); ahora sólo hereda la tubería de
-      progreso (`PROC_THREAD_ATTRIBUTE_HANDLE_LIST`) y el comando se arma sin
-      búfer fijo (un filtro largo desbordaba y abortaba). Verificado: aplicar
-      desde la interfaz con la barra de avance al 1→100 % sin caídas.
-- [x] Vista previa instantánea: se pinta la miniatura (ya cacheada) y el WebP
-      animado llega aparte. El WebP pasó de 6 s/12 fps a 4 s/8 fps y ya no
-      espera al ffmpeg de preparación (antes se quedaba 15 s en cola).
-- [x] `/api/probe` ya no descarga el vídeo entero, y `loadDisplays` no espera al
-      sondeo: asignar un wallpaper se ve al instante.
-- [x] Componer descarga el medio si aún no está (`sin medios` al aplicar un
-      wallpaper recién elegido) y el error dice cuántos faltan.
-- [x] El WebP animado se reintenta mientras el medio termina de descargarse.
-- [x] Fundido de bucle en la composición (crossfade real).
-- [x] Resolución de clonar (menor resolución) como ajuste.
-- [x] **Playlist activa en el escritorio**: la sección Playlist tiene intervalo y
-      botones Activar/Detener. Activar escribe `current.json` con
-      `"playlist": true` y avisa al motor, que rota los elementos y hace la
-      transición. Verificado en el log del motor ("apply: playlist activada").
-- [x] Los `optimized:` (escritorios compuestos y exportaciones) ya no aparecen en
-      el catálogo ni en el selector: son resultados, no fuentes. Tampoco se
-      hereda un `optimized:` como wallpaper al abrir Pantallas.
-- [x] Zoom/paneo: los gestos van en el monitor completo (la etiqueta central se
-      los comía) y, si el ajuste no es "Expandir", se cambia solo a Expandir:
-      con Centrar/Rellenar el encuadre se ignora y parecía que no funcionaba.
-- [x] Botón ⟲ por monitor: quita zoom y paneo y vuelve a la versión completa.
-- [x] App Android: el buscador envía `q` al servidor (antes filtraba en memoria
-      sobre lo descargado) y **Enter** lanza la búsqueda en vivo en los plugins.
-      APK debug compilada (`appcompanion/.../build/outputs/apk/debug/app-debug.apk`).
-- [x] Plugin **mylivewallpapers**: prefería la descarga `mobile-` (recorte
-      vertical 606×1080). Ahora elige 4K → escritorio → móvil. Los items ya
-      descargados con la versión móvil hay que borrarlos para que se bajen de
-      nuevo (hecho con *hollow-mask-bleach*).
-- [x] **Búsqueda y filtros en el servidor** (`/api/library?q=&provider=&type=&
-      orient=&minh=`): antes sólo filtraba las 60 tarjetas cargadas. La UI tiene
-      buscador con retardo, tipo (vídeo/imagen), orientación y resolución
-      (4K/2K/Full HD); el selector de wallpapers usa lo mismo.
-- [ ] Los plugins no admiten búsqueda en vivo: el contrato no tiene acción
-      `search`. Se busca en la instantánea del catálogo.
-  - [x] Hecho: **Enter** en la caja de búsqueda lanza `/api/search` y pregunta a
-        todos los plugins (`list --query --sort relevance`) en paralelo;
-        resultados mezclados por plugin, registrados para poder descargarlos.
-        En el catálogo aparece "Plugins: N resultados" y un botón para volver.
-        También en el selector de wallpapers. Medido: "gojo" → 79 en 8 s.
-  - [x] Búsqueda en dos niveles y asíncrona: al pulsar Enter se muestran **ya**
-        los resultados locales y debajo una sección "Buscando en los plugins…"
-        con rueda y contador (n/N); cada plugin añade sus resultados en cuanto
-        responde. Cambiar el texto **invalida** las respuestas pendientes
-        (secuencia) para que no se mezclen con otra búsqueda.
-- [ ] Rellenar `width/height` de los items al descargarlos (sólo ~57 % de los
-      plugins los declaran; sin ellos no entran en los filtros de resolución).
-- [ ] Playlist con vídeos optimizados por monitor (requiere asignación por
-      monitor en el motor; hoy la rotación usa los ficheros originales).
-- [x] Salvapantallas: que el motor lea `settings.json` y use el wallpaper
-      elegido en la UI.
-  - [x] Hecho: el servidor resuelve la clave a
-        `res/config/screensaver.json`, el motor la aplica y arranca con su
-        propio directorio de trabajo (Windows lo lanza desde System32).
-  - [x] Botón "Instalar en Windows" (`/api/screensaver/install`) que copia
-        `DNXWallpaper.scr`, registra `SCRNSAVE.EXE` y la espera configurada.
-
----
-
-## Pendiente priorizado (2026-10-31)
-
-### P1 — catálogo y datos
-- [ ] **Recarga profunda del catálogo**: botón "Recargar catálogo" (hecho) y
-      ejecutarlo para volver a ~6.000 items tras perder el snapshot.
-- [x] Rellenar `width/height` al descargar (sólo ~57 % de plugins los declaran).
-- [x] Revisar items de `mylivewallpapers` cuyo 4K es `.mlw` (caen al preview
-      720p). Revisado 2026-11-02: el plugin pide móvil → 4K y, si el paquete 4K
-      no trae MP4 (sólo `.mlw`), cae al preview del sitio; es el mejor fichero
-      disponible. No hay versión de escritorio publicada (sólo `mobile-`/`4k-`).
-
-### P1.5 — descarga por el plugin (cerrado 2026-11-02)
-- [x] **El medio lo baja el plugin, no el servidor**: `FetchRemoteMediaSync`
-      usa `fetch --id --out` del plugin (su mecanismo: tokens, referer,
-      cookies, preview alternativo) y la descarga HTTP directa queda como
-      respaldo. Igual para la vista previa animada con `fetch --kind preview`
-      (`FetchRemotePreviewSync`), antes un `curl` a la URL del catálogo.
-- [x] **Validación del fichero descargado**: `MediaFileLooksValid` (cabecera
-      real + tamaño mínimo, reutiliza `SniffMediaExt`). Los CDN protegidos
-      devuelven HTML; se guardaba como `.mp4` y ffmpeg fallaba después.
-      `RemoteMediaPath`/`EnsureMobileProxy` tratan un resto inválido como "no
-      descargado" para que se vuelva a pedir.
-- [x] **stderr de los plugins capturado** (`RunPluginCommand`): antes se
-      descartaba y un fallo sólo dejaba `exit=N`. Ahora se registra el mensaje
-      real cuando el comando falla.
-- [x] **`local exit=2` arreglado**: los plugins antiguos (sin `dnxlib.py`) no
-      aceptan `--cache-dir`; sólo se pasa a los del contrato v2.
-- [x] Verificado: HTML de 102 bytes en el `.mp4` → descartado → `fetch` del
-      plugin (12,5 MB) → composición OK. Preview de `motionbgs` (descarga
-      directa bloqueada) resuelto por el plugin.
-
-
-### P2 — escritorio
-- [x] **Asignación real por monitor en el motor** (2026-11-02): el renderer
-      dibuja una celda por pantalla con su textura, ajuste y recorte; el motor
-      reproduce **un vídeo por monitor** (`current.json` → `displays[]`). Se usa
-      con **2+ pantallas**, modo Individual/Clonar y **«Sin fundido»**: Aplicar
-      es instantáneo y no genera fichero. Con fundido se sigue componiendo
-      (crossfade real de ffmpeg). Verificado con 2 celdas repartidas en un
-      monitor (Obito a la izquierda con «expand», gatos a la derecha con
-      «fill»); volver a un solo fichero restaura la superficie única.
-- [ ] Playlist con vídeos optimizados por monitor (ahora cada celda tiene su
-      decodificador; falta que la rotación sea por pantalla).
-- [ ] Worker Python persistente: arranque (~90 s) y barajado (~26 s).
-
-### P3 — app Android
-- [ ] Instalar y probar la APK con la búsqueda nueva en un móvil real.
-- [x] **Insets de la barra de navegación** (2026-11-02): con targetSdk 36 la
-      app va a sangre; la barra inferior (estado/progreso) quedaba debajo de la
-      barra de sistema. Se añade `navigationBarsPadding()` al `bottomBar`.
-- [ ] Mini editor de encuadre que mande el `rect` al PC.
-- [ ] Marcar `persist` al subir desde el companion.
-
-### P4 — producto
-- [ ] Fase 3.3: borrar UI vieja (Angular/Steam) y cerrar la marca v3.
-- [ ] Lightbox del preview, icono de Plugins monoline, config de plugins.
-- [ ] Fases 4-7: overlays, plugins Web/App/Telegram, generador, i18n.
-
-### Ideas futuras (apuntadas, sin fecha)
-- [ ] **Modo Mosaico**: varios wallpapers repartidos dentro de una misma
-      pantalla (rejilla o cajas libres). Ya está medio hecho: el motor dibuja
-      N vídeos en cajas del escritorio virtual (`displays[]` con rectángulos
-      propios, verificado con 2 vídeos en 1 monitor). Falta:
-      - UI para definir la rejilla / cajas (arrastrar divisiones) y asignar un
-        wallpaper a cada celda.
-      - Mezcla opcional de vídeo e imagen por celda (hoy las celdas son vídeo).
-      - Fundido/transición por celda y borde opcional.
-      - Persistir el mosaico por monitor (`settings.displays.mosaic`), no como
-        `current.json` manual.
-      - Modo "pared de vídeos" (NxM) con un mismo wallpaper repetido o uno
-        distinto por celda.
-
-### P5 — infra
-- [x] **Repositorio GitHub** (2026-11-02): `Deen0X/DNXWallpaper`, rama `main`.
-      Sólo fuentes (317 ficheros, 12 MB): sin binarios, CEF, cachés, medios ni
-      credenciales.
-- [x] **Release v3.0.0**: `DNXWallpaper-v3-win64.zip` (207 MB, dist sin
-      wallpapers/cachés/config) + `DNXWallpaper-v3-companion-debug.apk` como
-      assets descargables. Generación reproducible con `tools/make_release.ps1`
-      y notas en `docs/release.md`.
-- [ ] Token de emparejamiento por QR (hoy fijo).
-- [ ] Flags `--port/--data-dir/--no-ui`, Dockerfile con ffmpeg.
-- [x] Subir la APK nueva a TCloud (msg 244; 2026-11-02).
-- [x] Recarga profunda del catalogo (/api/library/refresh) y boton; 651 a 5449 items.
-- [x] Dimensiones al descargar (ffprobe una vez por item), conservadas al fusionar el
-      escaneo y persistidas con guardado periodico del snapshot (verificado).
-- [x] Clic en "Pantallas": el interceptor de la UI clasica se comia el clic y abria el
-      dialogo viejo; ahora se desactiva en /ui2/.
-- [x] Barajado en paralelo (`PluginPageItems` + peticiones simultaneas):
-      26 s -> 5,8 s. Ya no borra el catalogo: solo mezcla una pagina nueva
-      de cada plugin con lo que hay (antes lo vaciaba).
-- [ ] Contrato de plugins v3 con `serve` (proceso persistente): el arranque
-      de ~90 s es el escaneo; sin `serve` no hay worker permanente.
+- Un solo encoder pesado a la vez (`g_encodeMutex`).
+- Un solo ffmpeg para componer; con asignación por monitor no se compone.
+- Descarga de medios **siempre** por el plugin; HTTP sólo de respaldo.
+- Release = zip en GitHub Releases (no binarios en git).

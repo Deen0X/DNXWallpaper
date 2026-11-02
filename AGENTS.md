@@ -177,7 +177,8 @@ publicar cada APK de DNXWallpaper v3 (debug y release) en el tema dedicado.
   no responde, preguntar por la IP antes de cambiar la configuración.
 
 ### Destino
-- Chat `-1004423392613`, tema `8` (debug y release).
+- Chat y tema: los de `.tcloud.env` (`TCLOUD_CHAT`, `TCLOUD_TOPIC`); debug y
+  release al mismo tema.
 - Se conserva el nombre original del APK.
 - Caption: changelog breve + fecha + `sha256:<12>`.
 
