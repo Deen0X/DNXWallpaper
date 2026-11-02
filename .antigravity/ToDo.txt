@@ -75,8 +75,8 @@ Windows y Android publicados y funcionando:
 - [ ] `Dockerfile` + `docker-compose.yml` con ffmpeg estático.
 - [ ] Retirar el plugin `local` cuando el flujo de fichero local del cliente
       esté completo.
-- [ ] Repetir release (zip + APK) cuando haya cambios: `tools\make_release.ps1`
-      y `docs/release.md`.
+- [x] Repetir release (zip + APK) cuando haya cambios: `tools\make_release.ps1`
+      y `docs/release.md`. **v3.0.1** publicada (199,1 MB, `sha256:d026ef031257`).
 
 ### P6 — Verificación / riesgos
 - [ ] **HDR real** en monitor HDR (`render: HDR activo (16F + PQ Rec.2020)`).
