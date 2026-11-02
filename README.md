@@ -1,58 +1,79 @@
-# Template Workflow IA (OpenCode + Antigravity)
+# DNXWallpaper v3
 
-Sistema de contexto persistente para trabajar con IA en cualquier proyecto.
-Objetivo: que un chat nuevo tenga contexto sin re-analizar el codigo ni gastar tokens.
+Fondo de escritorio animado para Windows (motor propio D3D11 + DirectComposition)
+con catálogo de plugins, editor de escritorio por monitor y app compañera para
+Android.
 
-## Uso
+## Descargas
 
-1. Copia el contenido de esta carpeta a la raiz del nuevo proyecto.
-2. Abre el proyecto en OpenCode (lee `AGENTS.md` automaticamente) o Antigravity.
-3. Ejecuta `/bootstrap`.
-4. Rellena la **seccion 1 de `Memory.txt`** (contexto del proyecto).
-5. Trabaja. Al cerrar sesion, ejecuta `/updateproject`.
+Todo lo que se ejecuta está en **Releases**, no en el código:
+
+| Plataforma | Fichero | Notas |
+|---|---|---|
+| Windows 10/11 x64 | [`DNXWallpaper-v3-win64.zip`](../../releases/latest) | Descomprimir y ejecutar `DNXWallpaper.exe`. Incluye motor, UI, plugins, editor de dispositivos y ffmpeg/ffprobe. |
+| Android 8.0+ | [`DNXWallpaper-v3-companion-debug.apk`](../../releases/latest) | App compañera: catálogo, búsqueda, editor de encuadre, subida al PC. |
+
+No se distribuyen wallpapers, cachés ni configuración de usuario.
+
+## Qué incluye
+
+- **Motor**: vídeo (Media Foundation) e imagen (WIC) sobre el escritorio, bucle
+  con crossfade, playlist, salvapantallas, HDR, pausas y optimizaciones.
+- **Editor de escritorio** (`/ui2/` → Pantallas): el preview *es* el escritorio.
+  Modos Individual / Clonar / Panorámico / Ninguno, zoom y paneo por monitor,
+  y un único botón **Aplicar** que compone el escritorio.
+- **Asignación real por monitor**: el motor reproduce un vídeo por pantalla en
+  su propia celda (sin recomponer ni generar ficheros) cuando el modo es
+  Individual/Clonar y el bucle va sin fundido.
+- **Catálogo de plugins v2** (Python): `list` / `detail` / `thumb` / `fetch` /
+  `health` / `categories`. El medio lo descarga siempre el plugin (tokens,
+  referer, cookies, preview alternativo), no el host.
+- **Búsqueda en vivo**: filtra en local mientras escribes y, con **Enter**,
+  pregunta a todos los plugins en paralelo (catálogo y selector).
+- **App Android**: catálogo del PC, búsqueda, favoritos, editor de encuadre,
+  subida de vídeo/imagen y aplicación del fondo animado (ExoPlayer + GL).
+
+## Requisitos
+
+- Windows 10/11 x64.
+- Python 3 para los plugins (el host lo detecta del PATH o de `tools\`).
+- ffmpeg/ffprobe: incluidos en el zip (`tools\`); si faltan, la app los ofrece
+  descargar.
+
+## Compilar desde el código
+
+Se necesita Visual Studio (MSVC x64) y el SDK de CEF 120 en
+`D:\Tools\cef120-standard` (ajustar la ruta en `tools\build_ui.cmd`).
+
+```powershell
+tools\build_launcher.cmd        # DNXWallpaper.exe
+tools\build_motor.cmd           # DNXWallpaper.Motor.exe
+tools\build_ui.cmd              # DNXWallpaper.UI.exe (CEF)
+tools\build_device_editor.cmd   # device-editor.exe
+```
+
+La app Android se compila con Gradle:
+
+```powershell
+cd appcompanion\DnxCompanion
+gradle :app:assembleDebug
+```
 
 ## Estructura
 
 ```
-AGENTS.md                     Config OpenCode (persona + comandos)
-Antigravity_Directives.txt    Bootstrap universal (protocolos, golden rules)
-.agent/
-  config.json                 Modelo por defecto Antigravity
-  workflows/*.md              Workflows Antigravity (7)
-.antigravity/
-  Memory.txt                  INDICE de contexto (se lee siempre) <- rellenar
-  Summary.txt                 Estado de las ultimas 3 sesiones
-  ToDo.txt                    Tareas
-  History.txt                 Archivo de sesiones antiguas
-  memory/*.txt                Dominios RAG (bajo demanda)
-  Knowledge/                  Conocimiento extendido (opcional)
-.opencode/
-  .gitignore
-  commands/*.md               Comandos slash OpenCode
-  skills/dnx-ui-style/        Skill de UI Windows (WPF/WinUI, Fluent/DNX)
+wallpaper-launcher-re\     Lanzador y bandeja
+wallpaper-motor-re\        Motor: D3D11, DirectComposition, Media Foundation
+wallpaper-ui-re\           Host CEF + servidor LAN + composición (ffmpeg)
+device-editor-re\          Editor de dispositivos (ventana)
+appcompanion\              App Android (Kotlin/Compose)
+dist\res\dnxui\            UI nueva (/ui2/): HTML/CSS/JS sin build
+dist\res\editor\           Editor de dispositivos (web)
+dist\plugins\              Plugins v2 en Python
+docs\                      Contratos, planes y notas técnicas
 ```
 
-## Comandos
+## Estado
 
-| Comando | Descripcion |
-|---|---|
-| `/bootstrap` | Carga contexto inicial de la sesion |
-| `/updateproject` | Persiste conocimiento al cerrar sesion |
-| `/chathealth` | Estado del contexto (Step Id) |
-| `/analyze_health` | Detecta ficheros grandes / refactor |
-| `/architecture` | Recarga `Project_Architecture.md` |
-| `/brainstorming` | Modo diseno, sin modificar ficheros |
-| `/brainstormingend` | Sale de brainstorming |
-
-## Filosofia de memoria
-
-- `Memory.txt` = indice corto y estable. Se lee siempre, debe caber en la cabeza.
-- `Summary.txt` = estado reciente (3 sesiones max).
-- `memory/{dominio}.txt` = detalle profundo, se carga SOLO si la sesion lo toca.
-- `Project_Architecture.md` = SSoT de arquitectura, opcional pero recomendado.
-- Nunca dupliques informacion entre niveles: indice apunta, dominio detalla.
-
-## Skills incluidas
-
-- `dnx-ui-style`: sistema de diseno para apps Windows (WPF/WinUI). Se activa al
-  crear o modificar XAML, estilos, temas o controles DNX/Fluent.
+Proyecto en cierre de la v3. Pendientes y decisiones en
+`.antigravity/ToDo.txt` y `.antigravity/Memory.txt`.
