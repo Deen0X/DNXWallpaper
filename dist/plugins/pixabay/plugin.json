@@ -2,17 +2,35 @@
   "schemaVersion": 2,
   "id": "pixabay",
   "name": "Pixabay",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Imágenes y vídeos de Pixabay mediante su API oficial.",
   "author": "DNXWallpaperEngine",
   "license": "pixabay-content-license",
   "runtime": "python",
   "entry": "main.py",
   "icon": "icon.png",
-  "capabilities": ["health", "categories", "list", "detail", "thumb", "fetch", "config"],
-  "mediaTypes": ["image", "video"],
-  "net": ["pixabay.com", "cdn.pixabay.com", "i.vimeocdn.com"],
-  "rateLimit": { "requestsPerMinute": 100, "burst": 10 },
+  "capabilities": [
+    "health",
+    "categories",
+    "list",
+    "detail",
+    "thumb",
+    "fetch",
+    "config"
+  ],
+  "mediaTypes": [
+    "image",
+    "video"
+  ],
+  "net": [
+    "pixabay.com",
+    "cdn.pixabay.com",
+    "i.vimeocdn.com"
+  ],
+  "rateLimit": {
+    "requestsPerMinute": 100,
+    "burst": 10
+  },
   "config": {
     "version": 1,
     "fields": [
@@ -27,5 +45,6 @@
     ]
   },
   "attribution": "Imágenes y vídeos de Pixabay y sus autores. Licencia de contenido Pixabay.",
-  "redistributable": false
+  "redistributable": false,
+  "protocol": 3
 }

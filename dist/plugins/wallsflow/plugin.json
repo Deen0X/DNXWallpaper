@@ -2,18 +2,39 @@
   "schemaVersion": 2,
   "id": "wallsflow",
   "name": "Wallsflow",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Vídeos de wallsflow.com (listados DLE y JSON-LD del detalle).",
   "author": "DNXWallpaperEngine",
   "license": "personal-use",
   "runtime": "python",
   "entry": "main.py",
   "icon": "icon.png",
-  "capabilities": ["health", "categories", "list", "detail", "thumb", "fetch", "config"],
-  "mediaTypes": ["video"],
-  "net": ["wallsflow.com", "play.wallsflow.com", "cloud.wallsflow.com"],
-  "rateLimit": { "requestsPerMinute": 20, "burst": 3 },
-  "config": { "version": 1, "fields": [] },
+  "capabilities": [
+    "health",
+    "categories",
+    "list",
+    "detail",
+    "thumb",
+    "fetch",
+    "config"
+  ],
+  "mediaTypes": [
+    "video"
+  ],
+  "net": [
+    "wallsflow.com",
+    "play.wallsflow.com",
+    "cloud.wallsflow.com"
+  ],
+  "rateLimit": {
+    "requestsPerMinute": 20,
+    "burst": 3
+  },
+  "config": {
+    "version": 1,
+    "fields": []
+  },
   "attribution": "Wallsflow.com y sus autores.",
-  "redistributable": false
+  "redistributable": false,
+  "protocol": 3
 }

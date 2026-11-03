@@ -33,9 +33,18 @@ Windows y Android publicados y funcionando:
       - Transición/borde opcional por celda.
       - Persistir por monitor (`settings.displays.mosaic`).
       - Atajo "pared de vídeos" NxM (mismo wallpaper repetido o distinto).
-- [ ] **Worker Python persistente** (contrato v3 con `serve`): el arranque
-      (~90 s de escaneo) y el barajado (~26 s) lo necesitan. Sin `serve` no
-      hay proceso permanente.
+- [x] **Worker Python persistente — host** (2026-11-03): contrato v3 en
+      `docs/plugin-contract-v3.md`; `RunPluginCommand` usa `serve` si el plugin
+      declara `"protocol": 3` y cae al modo de un solo uso si falla o expira.
+      Probado con un plugin de prueba (ready, petición/respuesta con `id` y
+      registro del ítem en el catálogo).
+- [x] **Race en `PythonPrefix()`** (2026-11-03): marcaba la caché como lista
+      antes de rellenarla; con el escaneo en paralelo otro hilo leía vacío y el
+      plugin "desaparecía". Ahora se rellena bajo cerrojo (posible causa de los
+      fallos intermitentes de plugins).
+- [ ] **Worker Python persistente — plugins**: `serve` en `dnxlib.run()` y en
+      `local/main.py`, y `"protocol": 3` en los 10 `plugin.json`. Va en el chat
+      de plugins; prompt entregado.
 - [ ] **Zoom/paneo reales en el motor**: hoy el encuadre manual se resuelve
       componiendo con ffmpeg; con asignación por monitor se puede hacer en la
       celda (el shader ya tiene `g_Crop`).

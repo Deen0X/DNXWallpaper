@@ -9,6 +9,7 @@
 #include <filesystem>
 
 #include "cef/cef_engine.h"
+#include "cef/plugin_host.h"
 
 namespace {
 bool HasFlag(const std::wstring& cmd, const wchar_t* flag) {
@@ -117,6 +118,9 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR lpCmdLine, int) {
     }
     int rc = engine.RunMessageLoop();
     engine.Shutdown();
+    // Cierra los procesos `serve` de los plugins (el job object también los
+    // mataría, pero así salen por su `shutdown`).
+    StopPluginWorkers();
     OleUninitialize();
     return rc;
 }

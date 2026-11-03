@@ -36,6 +36,11 @@
 esize (debounce) sin recrear los medios.
 - **Limpieza**: ToDo reescrito (sin duplicados), ID del chat de Telegram fuera
   de docs/AGENTS/skills (sólo en .tcloud.env) y APK verificada por el usuario.
+- **Worker persistente (host)**: contrato v3 serve + pool en
+  plugin_host.cpp con fallback a un-uso y switch worker en plugins.json.
+  Probado con un plugin de prueba (ready, id, item en catalogo).
+- **Race en PythonPrefix()**: cache marcada antes de rellenarse; con el
+  escaneo en paralelo un hilo leia vacio y el plugin no se ejecutaba.
 ## Sesión 2026-11-01: cola de miniaturas por plugin
 
 - Cola FIFO por proveedor con 12 workers globales y máximo 2 por plugin,

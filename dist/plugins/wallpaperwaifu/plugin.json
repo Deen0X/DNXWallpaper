@@ -2,18 +2,38 @@
   "schemaVersion": 2,
   "id": "wallpaperwaifu",
   "name": "WallpaperWaifu",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Vídeos de wallpaperwaifu.com (scraping y token de descarga directa).",
   "author": "DNXWallpaperEngine",
   "license": "personal-use",
   "runtime": "python",
   "entry": "main.py",
   "icon": "icon.png",
-  "capabilities": ["health", "categories", "list", "detail", "thumb", "fetch", "config"],
-  "mediaTypes": ["video"],
-  "net": ["wallpaperwaifu.com", "go.wallpaperwaifu.com"],
-  "rateLimit": { "requestsPerMinute": 20, "burst": 3 },
-  "config": { "version": 1, "fields": [] },
+  "capabilities": [
+    "health",
+    "categories",
+    "list",
+    "detail",
+    "thumb",
+    "fetch",
+    "config"
+  ],
+  "mediaTypes": [
+    "video"
+  ],
+  "net": [
+    "wallpaperwaifu.com",
+    "go.wallpaperwaifu.com"
+  ],
+  "rateLimit": {
+    "requestsPerMinute": 20,
+    "burst": 3
+  },
+  "config": {
+    "version": 1,
+    "fields": []
+  },
   "attribution": "WallpaperWaifu.com y sus autores.",
-  "redistributable": false
+  "redistributable": false,
+  "protocol": 3
 }

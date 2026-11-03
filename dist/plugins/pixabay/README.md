@@ -1,4 +1,4 @@
-# Pixabay (v2)
+# Pixabay (v3)
 
 Imágenes y vídeos de **pixabay.com** mediante la API oficial.
 
@@ -79,6 +79,14 @@ los ids numéricos de imagen y vídeo que ya existía en v1.
 - `width` / `height` del ítem son los del medio real, no los de la miniatura.
 - La caché de miniaturas usa una clave con `-nocrop-v2`, así que las
   miniaturas antiguas recortadas no se reutilizan.
+
+## Modo `serve` (protocolo 3)
+
+`python main.py serve --config <config.json> [--cache-dir <dir>]` abre un
+proceso persistente. La primera línea es
+`{"id":0,"ok":true,"event":"ready","protocol":3}`. Después acepta una petición
+JSON por línea (`{"id":1,"cmd":"health","args":{}}`) y responde con el mismo
+JSON del comando más el campo `id`. `shutdown` cierra el proceso; EOF también.
 
 ## Cambios respecto a v1
 

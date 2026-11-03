@@ -525,3 +525,23 @@
 - **API**: `/api/playlist/activate` conserva `displays[]` y añade
   `"playlist":true`; `/api/playlist/stop` quita la marca y mantiene las
   pantallas asignadas.
+
+## Worker persistente de plugins (2026-11-03)
+
+- **Contrato v3**: `docs/plugin-contract-v3.md`. Un proceso por plugin que
+  recibe `{"id","cmd","args"}` por stdin y responde una línea JSON con el mismo
+  payload de siempre y `id` delante. Ready:
+  `{"id":0,"ok":true,"event":"ready","protocol":3}`.
+- **Host**: `StartWorker`/`RunViaWorker`/`StopPluginWorkers` en
+  `plugin_host.cpp`. `RunPluginCommand` traduce `list --limit 100` a JSON,
+  quita el `id` de la respuesta y devuelve el payload de siempre: el resto del
+  código no cambia.
+- **Activación**: solo si `plugin.json` lleva `"protocol": 3`. Si no arranca,
+  expira o muere, se marca roto y se sigue con el proceso de un solo uso.
+  Interruptor global: `"worker": false` en `res/config/plugins.json`.
+- **PythonPrefix() era race**: marcaba `done` antes de rellenar `cached`; con
+  el escaneo en paralelo (un hilo por plugin) otro hilo leía vacío y el plugin
+  se quedaba sin ejecutar. Ahora se rellena bajo cerrojo. Esto explicaba fallos
+  intermitentes de plugins.
+- **Pendiente**: los plugins aún no implementan `serve`; el host funciona en
+  modo un-uso hasta que declaren `protocol: 3`.

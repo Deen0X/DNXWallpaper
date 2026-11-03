@@ -33,7 +33,7 @@ import urllib.request
 import zlib
 from pathlib import Path
 
-VERSION = "2.0.0"
+VERSION = "3.0.0"
 MAX_LIMIT = 200
 
 # En Windows la consola puede ser cp1252; el contrato exige UTF-8 en stdout.
@@ -79,11 +79,138 @@ def emit(obj):
     sys.stdout.flush()
 
 
+def emit_with_id(request_id, payload):
+    """Escribe una respuesta de protocolo con `id` como primer campo."""
+    body = dict(payload) if isinstance(payload, dict) else {"ok": True}
+    body.pop("id", None)
+    response = {"id": request_id}
+    response.update(body)
+    emit(response)
+
+
+def _request_argv(cmd, args_obj, serve_args):
+    """Convierte {args} de una peticion serve en argv para el parser CLI."""
+    argv = [cmd]
+    provided = set()
+    for raw_key, value in (args_obj or {}).items():
+        key = str(raw_key).replace("_", "-")
+        provided.add(key.lower())
+        if value is None:
+            continue
+        flag = "--" + key
+        if key == "animated" and isinstance(value, str):
+            low = value.strip().lower()
+            value = low in ("1", "true", "yes", "y", "on", "si", "sí")
+        if isinstance(value, bool):
+            if value:
+                argv.append(flag)
+            elif cmd == "list" and key == "animated":
+                # list --animated tiene nargs="?": false debe ser explicito.
+                argv.extend([flag, "false"])
+            # En thumb --animated es store_true: false = omitir.
+            continue
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                if item is not None:
+                    argv.extend([flag, str(item)])
+            continue
+        argv.extend([flag, str(value)])
+
+    # El proceso serve ya recibio --config/--cache-dir: se propagan a cada
+    # comando salvo que la peticion los traiga explicitamente.
+    if getattr(serve_args, "config", "") and "config" not in provided:
+        argv.extend(["--config", serve_args.config])
+    if getattr(serve_args, "cache_dir", "") and "cache-dir" not in provided:
+        argv.extend(["--cache-dir", serve_args.cache_dir])
+    return argv
+
+
+def _serve(handlers, parser, serve_args):
+    """Bucle persistente: una peticion JSON por linea, una respuesta por linea."""
+    try:
+        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+    emit({"id": 0, "ok": True, "event": "ready", "protocol": 3})
+
+    for raw in sys.stdin:
+        line = raw.strip()
+        try:
+            request = json.loads(line)
+        except Exception:
+            emit_with_id(None, {
+                "ok": False,
+                "code": "BAD_ARGS",
+                "message": "linea invalida",
+            })
+            continue
+        if not isinstance(request, dict):
+            emit_with_id(None, {
+                "ok": False,
+                "code": "BAD_ARGS",
+                "message": "peticion invalida",
+            })
+            continue
+
+        request_id = request.get("id")
+        cmd = request.get("cmd")
+        if cmd == "shutdown":
+            emit_with_id(request_id, {"ok": True})
+            return 0
+        if not isinstance(cmd, str) or not cmd:
+            emit_with_id(request_id, {
+                "ok": False,
+                "code": "BAD_ARGS",
+                "message": "falta cmd",
+            })
+            continue
+        args_obj = request.get("args") or {}
+        if not isinstance(args_obj, dict):
+            emit_with_id(request_id, {
+                "ok": False,
+                "code": "BAD_ARGS",
+                "message": "args debe ser un objeto",
+            })
+            continue
+
+        try:
+            argv = _request_argv(cmd, args_obj, serve_args)
+            cmd_args = parser.parse_args(argv)
+            handler = handlers.get(cmd)
+            if handler is None:
+                raise PluginError("BAD_ARGS", "comando desconocido: %s" % cmd)
+            result = handler(cmd_args)
+            if result is None:
+                result = {"ok": True}
+            emit_with_id(request_id, result)
+        except PluginError as exc:
+            payload = {"ok": False, "code": exc.code, "message": exc.message}
+            payload.update(exc.extra)
+            emit_with_id(request_id, payload)
+        except SystemExit:
+            emit_with_id(request_id, {
+                "ok": False,
+                "code": "BAD_ARGS",
+                "message": "argumentos invalidos",
+            })
+        except Exception as exc:  # noqa: BLE001 - el proceso debe seguir vivo
+            log(traceback.format_exc())
+            emit_with_id(request_id, {
+                "ok": False,
+                "code": "INTERNAL",
+                "message": str(exc) or exc.__class__.__name__,
+            })
+    return 0
+
+
 def run(handlers):
     """Ejecuta el comando y garantiza una unica linea JSON en stdout."""
     try:
         parser = build_parser()
         args = parser.parse_args()
+        if args.cmd == "serve":
+            return _serve(handlers, parser, args)
         handler = handlers.get(args.cmd)
         if handler is None:
             raise PluginError("BAD_ARGS", "comando desconocido: %s" % args.cmd)
@@ -139,6 +266,7 @@ def build_parser():
 
     sub.add_parser("health", parents=[parent], add_help=False)
     sub.add_parser("categories", parents=[parent], add_help=False)
+    sub.add_parser("serve", parents=[parent], add_help=False)
 
     p = sub.add_parser("list", parents=[parent], add_help=False)
     p.add_argument("--page", type=int, default=1)

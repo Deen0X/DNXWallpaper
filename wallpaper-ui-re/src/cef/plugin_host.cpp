@@ -308,6 +308,8 @@ std::vector<PluginInfo> DiscoverPlugins(const std::wstring& baseDir) {
         std::string runtime = j.AsString("runtime", "");
         if (pi.id.empty()) pi.id = ToUtf8(fd.cFileName);
         pi.python = (runtime == "python");
+        // Contrato v3: `protocol: 3` habilita el worker persistente (`serve`).
+        pi.protocol = (int)j.AsNum("protocol", 2);
         pi.exePath = dir + L"\\" + ToWide(entry);
         if (GetFileAttributesW(pi.exePath.c_str()) == INVALID_FILE_ATTRIBUTES)
             continue;
@@ -376,16 +378,25 @@ HANDLE PluginJob() {
 //   3. lanzador py.exe -3
 //   4. python.exe del PATH
 // Devuelve el prefijo de comando ya entrecomillado (vacío si no hay).
+// OJO: se llama desde el escaneo en paralelo (un hilo por plugin). La caché se
+// rellena bajo cerrojo: antes se marcaba `done` antes de tener el valor y otro
+// hilo podía leerlo vacío (plugins que fallaban de forma intermitente).
 std::wstring PythonPrefix() {
+    static std::mutex m;
     static std::wstring cached;
     static bool done = false;
+    std::lock_guard<std::mutex> lk(m);
     if (done) return cached;
-    done = true;
+
+    auto finish = [&]() {
+        done = true;
+        return cached;
+    };
 
     const wchar_t* env = _wgetenv(L"DNX_PYTHON");
     if (env && *env && GetFileAttributesW(env) != INVALID_FILE_ATTRIBUTES) {
         cached = std::wstring(L"\"") + env + L"\"";
-        return cached;
+        return finish();
     }
 
     wchar_t exe[MAX_PATH] = {};
@@ -396,28 +407,34 @@ std::wstring PythonPrefix() {
         std::wstring emb = dir + L"\\runtime\\python\\python.exe";
         if (GetFileAttributesW(emb.c_str()) != INVALID_FILE_ATTRIBUTES) {
             cached = L"\"" + emb + L"\"";
-            return cached;
+            return finish();
         }
     }
 
     wchar_t found[MAX_PATH] = {};
     if (SearchPathW(nullptr, L"py.exe", nullptr, MAX_PATH, found, nullptr)) {
         cached = L"\"" + std::wstring(found) + L"\" -3";
-        return cached;
+        return finish();
     }
     if (SearchPathW(nullptr, L"python.exe", nullptr, MAX_PATH, found, nullptr)) {
         cached = L"\"" + std::wstring(found) + L"\"";
-        return cached;
+        return finish();
     }
-    return cached;
+    return finish();
 }
 
-std::string RunPluginCommand(const PluginInfo& plugin,
-                             const std::wstring& args, int timeoutMs,
-                             int* exitCode) {
-    if (exitCode) *exitCode = -1;
-    std::wstring cmd = plugin.exePath;
-    std::wstring low = cmd;
+// Ejecución de un plugin: línea de comandos ya armada + directorio de trabajo.
+struct PluginInvocation {
+    std::wstring cmd;
+    std::wstring cwd;
+    std::wstring cacheDir;
+    bool v2 = false;  // trae dnxlib.py (acepta --cache-dir)
+};
+
+bool BuildPluginInvocation(const PluginInfo& plugin, const std::wstring& args,
+                           PluginInvocation& out) {
+    std::wstring exe = plugin.exePath;
+    std::wstring low = exe;
     for (auto& c : low) c = (wchar_t)towlower(c);
     bool isScript = low.size() > 4 &&
                     (low.rfind(L".cmd") == low.size() - 4 ||
@@ -429,15 +446,10 @@ std::string RunPluginCommand(const PluginInfo& plugin,
     if (sep != std::wstring::npos) pluginDir = pluginDir.substr(0, sep);
     std::wstring cfg = pluginDir + L"\\config.json";
     std::wstring tail = args + L" --config \"" + cfg + L"\"";
-    std::wstring cwd = pluginDir;
-    std::wstring full;
+    out.cwd = pluginDir;
     if (plugin.python) {
         std::wstring py = PythonPrefix();
-        if (py.empty()) {
-            // Sin interprete no hay plugin: se trata como fallo de ejecucion.
-            if (exitCode) *exitCode = -2;
-            return {};
-        }
+        if (py.empty()) return false;  // sin intérprete no hay plugin
         // Caché de datos del plugin bajo res\cache\plugin-data\<id>.
         // Sólo los plugins del contrato v2 (traen dnxlib.py) aceptan
         // --cache-dir; los antiguos fallaban con exit=2 al recibirlo.
@@ -446,20 +458,35 @@ std::string RunPluginCommand(const PluginInfo& plugin,
         if (s1 != std::wstring::npos) base = base.substr(0, s1);
         size_t s2 = base.find_last_of(L"\\/");          // ...\plugins
         if (s2 != std::wstring::npos) base = base.substr(0, s2);
-        std::wstring cacheDir =
-            base + L"\\res\\cache\\plugin-data\\" + ToWide(plugin.id);
-        const bool v2 =
-            GetFileAttributesW((pluginDir + L"\\dnxlib.py").c_str()) !=
-            INVALID_FILE_ATTRIBUTES;
-        full = py + L" \"" + cmd + L"\" " + tail;
-        if (v2) full += L" --cache-dir \"" + cacheDir + L"\"";
-    } else if (isScript) {
+        out.cacheDir = base + L"\\res\\cache\\plugin-data\\" + ToWide(plugin.id);
+        out.v2 = GetFileAttributesW((pluginDir + L"\\dnxlib.py").c_str()) !=
+                 INVALID_FILE_ATTRIBUTES;
+        out.cmd = py + L" \"" + exe + L"\" " + tail;
+        if (out.v2) out.cmd += L" --cache-dir \"" + out.cacheDir + L"\"";
+        return true;
+    }
+    if (isScript) {
         // cmd /s /c ""script.cmd" args..." : comillas externas para conservar
         // las internas de las rutas con espacios.
-        full = L"cmd.exe /d /s /c \"\"" + cmd + L"\" " + tail + L"\"";
+        out.cmd = L"cmd.exe /d /s /c \"\"" + exe + L"\" " + tail + L"\"";
     } else {
-        full = L"\"" + cmd + L"\" " + tail;
+        out.cmd = L"\"" + exe + L"\" " + tail;
     }
+    return true;
+}
+
+// Proceso de un solo uso (contrato v1/v2): se lanza, se lee la salida y muere.
+std::string RunPluginCommandOneShot(const PluginInfo& plugin,
+                                    const std::wstring& args, int timeoutMs,
+                                    int* exitCode) {
+    if (exitCode) *exitCode = -1;
+    PluginInvocation inv;
+    if (!BuildPluginInvocation(plugin, args, inv)) {
+        if (exitCode) *exitCode = plugin.python ? -2 : -1;
+        return {};
+    }
+    std::wstring full = inv.cmd;
+    std::wstring cwd = inv.cwd;
 
     SECURITY_ATTRIBUTES sa{};
     sa.nLength = sizeof(sa);
@@ -564,6 +591,344 @@ std::string RunPluginCommand(const PluginInfo& plugin,
         DlLog("plugin %s stderr: %s", plugin.id.c_str(), flat.c_str());
     }
     return out;
+}
+
+
+// --- Worker persistente (contrato v3, `serve`) -----------------------------
+// Un proceso Python por plugin que recibe peticiones JSON por stdin y responde
+// por stdout. Elimina el arranque de Python en cada comando (~250-360 ms).
+// Si el plugin no declara `protocol: 3`, falla o no contesta, se usa el modo de
+// un solo uso de siempre: la mejora entra plugin a plugin sin romper nada.
+namespace {
+
+struct PluginWorker {
+    HANDLE proc = nullptr;
+    HANDLE in = nullptr;    // stdin del plugin (escribimos)
+    HANDLE out = nullptr;   // stdout del plugin (leemos)
+    std::string inbuf;      // bytes pendientes de stdout
+    std::mutex m;           // una petición a la vez
+    int nextId = 1;
+    bool broken = false;
+};
+
+std::map<std::string, std::shared_ptr<PluginWorker>> g_workers;
+std::mutex g_workersMutex;
+
+// ¿Está activado el worker? res\config\plugins.json -> "worker": false
+bool WorkerEnabled() {
+    static int cached = -1;
+    if (cached >= 0) return cached != 0;
+    cached = 1;
+    FILE* f = nullptr;
+    if (_wfopen_s(&f, L"res\\config\\plugins.json", L"rb") == 0 && f) {
+        char buf[4096] = {};
+        size_t got = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        if (got > 0) {
+            const char* k = strstr(buf, "\"worker\"");
+            if (k) {
+                const char* c = strchr(k, ':');
+                if (c) {
+                    const char* v = c + 1;
+                    while (*v == ' ' || *v == '\t') ++v;
+                    if (strncmp(v, "false", 5) == 0) cached = 0;
+                }
+            }
+        }
+    }
+    return cached != 0;
+}
+
+void CloseWorker(PluginWorker& w) {
+    if (w.in) { CloseHandle(w.in); w.in = nullptr; }
+    if (w.out) { CloseHandle(w.out); w.out = nullptr; }
+    if (w.proc) {
+        TerminateProcess(w.proc, 0);
+        CloseHandle(w.proc);
+        w.proc = nullptr;
+    }
+}
+
+// Lee una línea de stdout con plazo. Devuelve false si expira o muere.
+bool WorkerReadLine(PluginWorker& w, std::string& line, DWORD timeoutMs) {
+    line.clear();
+    const DWORD start = GetTickCount();
+    char buf[8192];
+    while (true) {
+        size_t nl = w.inbuf.find('\n');
+        if (nl != std::string::npos) {
+            line = w.inbuf.substr(0, nl);
+            w.inbuf.erase(0, nl + 1);
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            return true;
+        }
+        DWORD avail = 0;
+        if (PeekNamedPipe(w.out, nullptr, 0, nullptr, &avail, nullptr) && avail > 0) {
+            DWORD got = 0;
+            if (!ReadFile(w.out, buf, sizeof(buf), &got, nullptr) || got == 0) {
+                return false;
+            }
+            w.inbuf.append(buf, (size_t)got);
+            continue;
+        }
+        if (GetTickCount() - start > timeoutMs) return false;
+        Sleep(10);
+    }
+}
+
+std::string JsonEscape(const std::string& in) {
+    std::string o;
+    for (char c : in) {
+        switch (c) {
+            case '"': o += "\\\""; break;
+            case '\\': o += "\\\\"; break;
+            case '\n': o += "\\n"; break;
+            case '\r': o += "\\r"; break;
+            case '\t': o += "\\t"; break;
+            default: o.push_back(c);
+        }
+    }
+    return o;
+}
+
+// Convierte "--limit 100 --page 1 --animated" en {"limit":"100",...}.
+std::string ArgsToJson(const std::string& args) {
+    std::vector<std::string> tok;
+    std::string cur;
+    bool q = false;
+    for (char c : args) {
+        if (c == '"') { q = !q; continue; }
+        if (!q && (c == ' ' || c == '\t')) {
+            if (!cur.empty()) { tok.push_back(cur); cur.clear(); }
+            continue;
+        }
+        cur.push_back(c);
+    }
+    if (!cur.empty()) tok.push_back(cur);
+
+    std::string j = "{";
+    bool first = true;
+    for (size_t i = 0; i < tok.size(); ++i) {
+        const std::string& t = tok[i];
+        if (t.rfind("--", 0) != 0) continue;  // el comando va aparte
+        std::string key = t.substr(2);
+        bool hasVal = (i + 1 < tok.size()) && tok[i + 1].rfind("--", 0) != 0;
+        if (!first) j += ",";
+        first = false;
+        j += "\"" + JsonEscape(key) + "\":";
+        if (hasVal) {
+            j += "\"" + JsonEscape(tok[i + 1]) + "\"";
+            ++i;
+        } else {
+            j += "true";
+        }
+    }
+    j += "}";
+    return j;
+}
+
+// Arranca `serve` y espera la línea de ready. nullptr si no es viable.
+std::shared_ptr<PluginWorker> StartWorker(const PluginInfo& plugin) {
+    PluginInvocation inv;
+    if (!BuildPluginInvocation(plugin, L"serve", inv)) {
+        DlLog("worker %s: no se pudo armar el comando (serve)",
+              plugin.id.c_str());
+        return nullptr;
+    }
+
+    SECURITY_ATTRIBUTES sa{};
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    HANDLE inR = nullptr, inW = nullptr;   // stdin del hijo
+    HANDLE outR = nullptr, outW = nullptr; // stdout del hijo
+    if (!CreatePipe(&inR, &inW, &sa, 0) || !CreatePipe(&outR, &outW, &sa, 0)) {
+        DlLog("worker %s: CreatePipe fallo (%lu)", plugin.id.c_str(),
+              GetLastError());
+        return nullptr;
+    }
+    SetHandleInformation(inW, HANDLE_FLAG_INHERIT, 0);
+    SetHandleInformation(outR, HANDLE_FLAG_INHERIT, 0);
+
+    // stderr a un fichero aparte: no se mezcla con el protocolo.
+    std::wstring errLog = inv.cacheDir + L"\\worker-stderr.log";
+    CreateDirectoryW(inv.cacheDir.c_str(), nullptr);
+    HANDLE errh = CreateFileW(errLog.c_str(), FILE_APPEND_DATA,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE, &sa,
+                              OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = inR;
+    si.hStdOutput = outW;
+    si.hStdError = (errh == INVALID_HANDLE_VALUE) ? nullptr : errh;
+    PROCESS_INFORMATION pi{};
+    std::vector<wchar_t> buf(inv.cmd.begin(), inv.cmd.end());
+    buf.push_back(0);
+    BOOL okc = CreateProcessW(nullptr, buf.data(), nullptr, nullptr, TRUE,
+                              CREATE_NO_WINDOW, nullptr, inv.cwd.c_str(), &si,
+                              &pi);
+    CloseHandle(inR);
+    CloseHandle(outW);
+    if (errh != INVALID_HANDLE_VALUE) CloseHandle(errh);
+    if (!okc) {
+        DlLog("worker %s: CreateProcess fallo (%lu)", plugin.id.c_str(),
+              GetLastError());
+        CloseHandle(inW);
+        CloseHandle(outR);
+        return nullptr;
+    }
+    if (HANDLE job = PluginJob()) AssignProcessToJobObject(job, pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    auto w = std::make_shared<PluginWorker>();
+    w->proc = pi.hProcess;
+    w->in = inW;
+    w->out = outR;
+
+    std::string ready;
+    if (!WorkerReadLine(*w, ready, 5000) ||
+        ready.find("\"ready\"") == std::string::npos) {
+        DlLog("worker %s no arranco (serve)", plugin.id.c_str());
+        CloseWorker(*w);
+        return nullptr;
+    }
+    DlLog("worker %s listo", plugin.id.c_str());
+    return w;
+}
+
+// Quita el `id` de la respuesta: {"id":N,"ok":...} -> {"ok":...}
+std::string StripResponseId(const std::string& line) {
+    size_t p = line.find("\"id\"");
+    if (p == std::string::npos) return line;
+    size_t colon = line.find(':', p);
+    if (colon == std::string::npos) return line;
+    size_t comma = line.find(',', colon);
+    if (comma == std::string::npos) return line;  // sólo id: no hay payload
+    size_t brace = line.find('{');
+    if (brace == std::string::npos || brace > p) return line;
+    return "{" + line.substr(comma + 1);
+}
+
+// Petición al worker. false = no se pudo (se cae al modo un-uso).
+bool RunViaWorker(const PluginInfo& plugin, const std::wstring& args,
+                  int timeoutMs, std::string& out) {
+    // Argumentos a UTF-8 (las rutas pueden tener acentos).
+    std::string u8;
+    {
+        int n = WideCharToMultiByte(CP_UTF8, 0, args.c_str(), -1, nullptr, 0,
+                                    nullptr, nullptr);
+        if (n > 0) {
+            u8.resize((size_t)n);
+            WideCharToMultiByte(CP_UTF8, 0, args.c_str(), -1, u8.data(), n,
+                                nullptr, nullptr);
+            while (!u8.empty() && u8.back() == '\0') u8.pop_back();
+        }
+    }
+    // Primera palabra = comando; el resto, argumentos.
+    size_t sp = u8.find(' ');
+    const std::string cmd = (sp == std::string::npos) ? u8 : u8.substr(0, sp);
+    const std::string rest = (sp == std::string::npos) ? std::string() : u8.substr(sp + 1);
+    if (cmd.empty()) return false;
+
+    std::shared_ptr<PluginWorker> w;
+    bool needStart = false;
+    {
+        std::lock_guard<std::mutex> g(g_workersMutex);
+        auto it = g_workers.find(plugin.id);
+        if (it != g_workers.end()) w = it->second;
+        if (w && w->broken) return false;
+        if (!w) needStart = true;
+    }
+    // El arranque (hasta 5 s esperando el ready) va fuera del cerrojo global:
+    // si un plugin tarda en fallar, no bloquea a los demás.
+    if (needStart) {
+        auto fresh = StartWorker(plugin);
+        std::lock_guard<std::mutex> g(g_workersMutex);
+        auto it = g_workers.find(plugin.id);
+        if (it != g_workers.end()) {
+            // Otro hilo lo creó mientras tanto: se descarta el duplicado.
+            if (fresh) CloseWorker(*fresh);
+            w = it->second;
+        } else if (fresh) {
+            g_workers[plugin.id] = fresh;
+            w = fresh;
+        } else {
+            auto dead = std::make_shared<PluginWorker>();
+            dead->broken = true;
+            g_workers[plugin.id] = dead;
+            return false;
+        }
+        if (w && w->broken) return false;
+    }
+
+    std::lock_guard<std::mutex> lock(w->m);
+    if (w->broken || !w->in) return false;
+    const int id = w->nextId++;
+    std::string req = "{\"id\":" + std::to_string(id) + ",\"cmd\":\"" +
+                      JsonEscape(cmd) + "\",\"args\":" + ArgsToJson(rest) +
+                      "}\n";
+    DWORD wrote = 0;
+    if (!WriteFile(w->in, req.data(), (DWORD)req.size(), &wrote, nullptr) ||
+        wrote != req.size()) {
+        w->broken = true;
+        CloseWorker(*w);
+        return false;
+    }
+
+    const DWORD deadline = GetTickCount() + (DWORD)(timeoutMs > 0 ? timeoutMs : 30000);
+    std::string line;
+    const std::string want = "\"id\":" + std::to_string(id);
+    while (GetTickCount() < deadline) {
+        if (!WorkerReadLine(*w, line, 800)) {
+            // Puede ser un hueco entre líneas: seguir hasta el plazo global.
+            continue;
+        }
+        if (line.find(want) == std::string::npos &&
+            line.find("\"id\": " + std::to_string(id)) == std::string::npos) {
+            continue;  // respuesta de otra petición o ruido
+        }
+        out = StripResponseId(line);
+        DlLog("worker %s %s ok (%zu bytes)", plugin.id.c_str(), cmd.c_str(),
+              out.size());
+        return true;
+    }
+    DlLog("worker %s %s TIMEOUT", plugin.id.c_str(), cmd.c_str());
+    w->broken = true;
+    CloseWorker(*w);
+    return false;
+}
+
+}  // namespace
+
+// Punto de entrada: usa el worker si el plugin lo soporta y si funciona;
+// en cualquier otro caso, proceso de un solo uso (contrato v1/v2).
+std::string RunPluginCommand(const PluginInfo& plugin,
+                             const std::wstring& args, int timeoutMs,
+                             int* exitCode) {
+    if (plugin.protocol >= 3 && !plugin.exePath.empty() && WorkerEnabled()) {
+        std::string out;
+        if (RunViaWorker(plugin, args, timeoutMs, out)) {
+            if (exitCode) *exitCode = 0;
+            return out;
+        }
+        DlLog("worker %s no disponible: se usa un solo uso", plugin.id.c_str());
+    }
+    return RunPluginCommandOneShot(plugin, args, timeoutMs, exitCode);
+}
+
+// Cierra todos los workers (al salir). El job object también los mata.
+void StopPluginWorkers() {
+    std::lock_guard<std::mutex> g(g_workersMutex);
+    for (auto& kv : g_workers) {
+        if (kv.second && kv.second->proc && kv.second->in) {
+            const char* bye = "{\"id\":0,\"cmd\":\"shutdown\",\"args\":{}}\n";
+            DWORD wrote = 0;
+            WriteFile(kv.second->in, bye, (DWORD)strlen(bye), &wrote, nullptr);
+        }
+        CloseWorker(*kv.second);
+    }
+    g_workers.clear();
 }
 
 

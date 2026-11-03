@@ -2,18 +2,40 @@
   "schemaVersion": 2,
   "id": "wikimedia",
   "name": "Wikimedia Commons",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Imágenes y vídeos WebM de Wikimedia Commons (CC / dominio público).",
   "author": "DNXWallpaperEngine",
   "license": "cc-and-public-domain",
   "runtime": "python",
   "entry": "main.py",
   "icon": "icon.png",
-  "capabilities": ["health", "categories", "list", "detail", "thumb", "fetch", "config"],
-  "mediaTypes": ["image", "video"],
-  "net": ["commons.wikimedia.org", "upload.wikimedia.org", "thumb.wikimedia.org"],
-  "rateLimit": { "requestsPerMinute": 30, "burst": 5 },
-  "config": { "version": 1, "fields": [] },
+  "capabilities": [
+    "health",
+    "categories",
+    "list",
+    "detail",
+    "thumb",
+    "fetch",
+    "config"
+  ],
+  "mediaTypes": [
+    "image",
+    "video"
+  ],
+  "net": [
+    "commons.wikimedia.org",
+    "upload.wikimedia.org",
+    "thumb.wikimedia.org"
+  ],
+  "rateLimit": {
+    "requestsPerMinute": 30,
+    "burst": 5
+  },
+  "config": {
+    "version": 1,
+    "fields": []
+  },
   "attribution": "Wikimedia Commons y sus autores. Licencias CC / dominio público; cada ítem declara su licencia.",
-  "redistributable": true
+  "redistributable": true,
+  "protocol": 3
 }

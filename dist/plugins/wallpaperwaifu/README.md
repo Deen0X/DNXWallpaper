@@ -1,4 +1,4 @@
-# WallpaperWaifu (v2)
+# WallpaperWaifu (v3)
 
 Vídeos de **wallpaperwaifu.com**. Scraping de listados y del token `data-url`
 del detalle para descargar el MP4 directo.
@@ -72,6 +72,14 @@ No requiere configuración.
 - `width` / `height` del ítem son los del medio real, no los de la miniatura.
 - La caché de miniaturas usa una clave con `-nocrop-v2`, así que las
   miniaturas antiguas recortadas no se reutilizan.
+
+## Modo `serve` (protocolo 3)
+
+`python main.py serve --config <config.json> [--cache-dir <dir>]` abre un
+proceso persistente. La primera línea es
+`{"id":0,"ok":true,"event":"ready","protocol":3}`. Después acepta una petición
+JSON por línea (`{"id":1,"cmd":"health","args":{}}`) y responde con el mismo
+JSON del comando más el campo `id`. `shutdown` cierra el proceso; EOF también.
 
 ## Cambios respecto a v1
 

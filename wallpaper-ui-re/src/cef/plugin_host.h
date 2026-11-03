@@ -16,6 +16,7 @@ struct PluginInfo {
     std::wstring exePath;     // ruta absoluta del ejecutable/entry
     std::string attribution;
     bool python = false;      // runtime "python" (contrato v2)
+    int protocol = 2;         // contrato del plugin (3 = worker `serve`)
 };
 
 struct RemoteItem {
@@ -60,9 +61,14 @@ void SetPluginCacheTtlHours(int hours);
 std::vector<PluginInfo> DiscoverPlugins(const std::wstring& baseDir);
 
 // Ejecuta un comando del plugin y devuelve stdout (vacío en error).
+// Con `protocol` 3 usa el worker persistente (`serve`); si falla o no está,
+// cae al proceso de un solo uso.
 std::string RunPluginCommand(const PluginInfo& plugin,
                              const std::wstring& args, int timeoutMs,
                              int* exitCode = nullptr);
+
+// Cierra los workers persistentes de los plugins (al salir de la app).
+void StopPluginWorkers();
 
 // Lista ítems de un plugin (comando `list --limit N`).
 std::vector<RemoteItem> ListPluginItems(const PluginInfo& plugin, int limit);

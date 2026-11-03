@@ -2,23 +2,41 @@
   "schemaVersion": 2,
   "id": "local",
   "name": "Local",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "Tus carpetas de wallpapers (vídeo e imagen). Escaneo recursivo.",
   "author": "DNXWallpaper",
   "license": "personal-use",
   "runtime": "python",
   "entry": "main.py",
-  "capabilities": ["health", "categories", "list", "detail", "config"],
-  "mediaTypes": ["video", "image"],
+  "capabilities": [
+    "health",
+    "categories",
+    "list",
+    "detail",
+    "config"
+  ],
+  "mediaTypes": [
+    "video",
+    "image"
+  ],
   "requiresAuth": false,
   "config": {
     "version": 1,
     "mode": "external",
     "fields": [
-      { "key": "folders", "label": "Carpetas", "type": "path", "required": true }
+      {
+        "key": "folders",
+        "label": "Carpetas",
+        "type": "path",
+        "required": true
+      }
     ]
   },
-  "rateLimit": { "requestsPerMinute": 600, "burst": 60 },
+  "rateLimit": {
+    "requestsPerMinute": 600,
+    "burst": 60
+  },
   "attribution": "Contenido local del usuario",
-  "notes": "Escanea las carpetas configuradas y sirve los ficheros en su sitio (sin copiarlos)."
+  "notes": "Escanea las carpetas configuradas y sirve los ficheros en su sitio (sin copiarlos).",
+  "protocol": 3
 }
