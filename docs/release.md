@@ -48,17 +48,17 @@ colado ninguna carpeta de datos. Sale con `sha256:<12>` para el changelog.
    - `DNXWallpaper-v3-companion-debug.apk` (copia de `app-debug.apk`)
 4. Anotar en el cuerpo: cambios + `sha256:<12>` del zip y de la APK.
 
-Última publicada: **v3.0.5**
+Última publicada: **v3.0.6**
 
-- https://github.com/Deen0X/DNXWallpaper/releases/tag/v3.0.5
-- `DNXWallpaper-v3-win64.zip` — 199,1 MB — `sha256:10b8e01803c9`
-- `DNXWallpaper-v3-companion-debug.apk` — 22,4 MB — `sha256:0020d0d63fbf`
+- https://github.com/Deen0X/DNXWallpaper/releases/tag/v3.0.6
+- DNXWallpaper-v3-win64.zip — 199,1 MB — sha256:d1e1fe16d27e
+- DNXWallpaper-v3-companion-debug.apk — 22,4 MB — sha256:0020d0d63fbf
 
 Enlaces directos:
 
-- Windows: https://github.com/Deen0X/DNXWallpaper/releases/download/v3.0.5/DNXWallpaper-v3-win64.zip
-- Android: https://github.com/Deen0X/DNXWallpaper/releases/download/v3.0.5/DNXWallpaper-v3-companion-debug.apk
+- Windows: https://github.com/Deen0X/DNXWallpaper/releases/download/v3.0.6/DNXWallpaper-v3-win64.zip
+- Android: https://github.com/Deen0X/DNXWallpaper/releases/download/v3.0.6/DNXWallpaper-v3-companion-debug.apk
 
-Anteriores: **v3.0.4** (`sha256:06685551246c`), **v3.0.3**
+Anteriores: **v3.0.5** (sha256:10b8e01803c9), **v3.0.4** (`sha256:06685551246c`), **v3.0.3**
 (`sha256:7705fb0f1931`), **v3.0.2** (`sha256:0d68344a1b8c`), **v3.0.1**
 (`sha256:d026ef031257`) y **v3.0.0** (`sha256:e6bc5cc79e83`).
