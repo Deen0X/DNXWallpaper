@@ -123,3 +123,6 @@ desktop.ini
 
 # --- Credenciales TCloud (NO versionar) -------------------------
 .tcloud.env
+# --- Python ---------------------------------------------------
+__pycache__/
+*.pyc
