@@ -603,3 +603,26 @@ es/mosaics es dato de usuario: esta en .gitignore y excluida del zip de
   release.
 - La generacion informa en /api/progress con stage: descargando medios
   (percent -1) mientras baja los que falten; la UI pinta barra indeterminada.
+
+## Mosaico: dos pasadas y proyectos (2026-11-03)
+
+- **Dos pasadas siempre**: 1) preparar cada celda/lapa a su tamano con
+  MosaicPrepClip en 
+es\\cache\\mosaic\\<hash>.mp4 (recorte, loops,
+  estirado y fundido ya aplicados); 2) componer desde esos clips pequenos.
+  Menos memoria (25 decodificadores pequenos en vez de 25 originales) y se
+  reutiliza al repetir (4,5 s -> 3,5 s en 2x2).
+- El fondo no se prepara: se usa el original en linea (un solo flujo).
+- **Proyecto por mosaico**: 
+es\\mosaics\\<id>.json guarda
+  {title,width,height,seconds,project:{...}}.
+- **Autosave** (
+es/config/mosaic-autosave.json) para la sesion; **Guardar**
+  escribe 
+es/config/mosaic.json; **Cargar** lee ese mismo. Al arrancar se
+  prefiere el autosave.
+- **Menu contextual** en el catalogo para items mosaics:: cargar su proyecto
+  (/api/mosaic/project?key=) o eliminarlo (/api/mosaic/delete), que borra
+  .mp4 y .json y lo quita del registro.
+- Cuidado con str.replace en Python: reemplaza TODAS las apariciones (me
+  cambio el handler de Guardar a autosave).

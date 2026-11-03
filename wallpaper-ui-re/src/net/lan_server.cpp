@@ -34,6 +34,13 @@
 // Log del host de plugins (res\dnxwallpaper.log), sin prefijo propio.
 extern void DlLog(const char* fmt, ...);
 
+// Tamaño en disco (local; FileSize del host es interno).
+static long long MosaicFileSize(const std::wstring& p) {
+    WIN32_FILE_ATTRIBUTE_DATA fad{};
+    if (!GetFileAttributesExW(p.c_str(), GetFileExInfoStandard, &fad)) return 0;
+    return ((long long)fad.nFileSizeHigh << 32) | fad.nFileSizeLow;
+}
+
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "iphlpapi.lib")
 
@@ -1326,6 +1333,7 @@ struct MosaicLayer {
     int inputIndex = -1;
     int x = 0, y = 0, w = 0, h = 0;  // caja destino
     double rot = 0;                  // grados (capas libres)
+    std::wstring prep;               // clip preparado (pasada 1)
 };
 
 static bool IsImageFileName(const std::wstring& f) {
@@ -1506,6 +1514,206 @@ std::string MosaicRandomJson(int count, const std::string& exclude) {
     return j;
 }
 
+// ---- Mosaico: preparación de celdas (dos pasadas) --------------------------
+// Cada celda/lapa se prepara una vez a su tamaño final (recorte, bucle,
+// estirado y fundido) y se guarda en res\cache\mosaic. La composición luego
+// sólo decodifica esos clips pequeños: mucha menos memoria y reutilizable.
+static std::wstring MosaicCacheDir() {
+    const std::wstring dir = g_baseDir + L"\\res\\cache\\mosaic";
+    CreateDirectoryW((g_baseDir + L"\\res\\cache").c_str(), nullptr);
+    CreateDirectoryW(dir.c_str(), nullptr);
+    return dir;
+}
+
+static int MosaicLoops(double cellDur, double dur) {
+    if (dur <= 0.05 || cellDur <= 0.05) return 1;
+    const double ratio = cellDur / dur;
+    if (ratio < 0.4) {
+        int loops = (int)(1.0 / ratio);
+        if (loops < 2) loops = 2;
+        if (loops > 32) loops = 32;
+        return loops;
+    }
+    if (ratio < 0.6) return 2;
+    return 1;
+}
+
+static std::wstring MosaicCachePath(const MosaicLayer& L, double dur,
+                                    int loops) {
+    char p[1024];
+    sprintf_s(p, "%ls|%d|%d|%.4f|%.4f|%.4f|%.4f|%.3f|%.3f|%d|%s",
+              L.file.c_str(), L.w, L.h, L.cx, L.cy, L.cw, L.ch, dur, L.fade,
+              loops, L.type.c_str());
+    unsigned long long h = 1469598103934665603ULL;
+    for (const char* s = p; *s; ++s) {
+        h ^= (unsigned char)*s;
+        h *= 1099511628211ULL;
+    }
+    char b[32];
+    sprintf_s(b, "%016llx", h);
+    return MosaicCacheDir() + L"\\" + Utf8ToWide(b) + L".mp4";
+}
+
+// Ejecuta un proceso sin ventana y espera. Devuelve el código de salida.
+static DWORD RunWaitHidden(const std::wstring& cmd, int timeoutMs,
+                           std::string* errTail) {
+    SECURITY_ATTRIBUTES sa{};
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    HANDLE rd = nullptr, wr = nullptr;
+    if (!CreatePipe(&rd, &wr, &sa, 0)) return (DWORD)-1;
+    SetHandleInformation(rd, HANDLE_FLAG_INHERIT, 0);
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    si.hStdOutput = wr;
+    si.hStdError = wr;
+    PROCESS_INFORMATION pi{};
+    std::wstring mcmd = cmd;
+    if (!CreateProcessW(nullptr, mcmd.data(), nullptr, nullptr, TRUE,
+                        CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+        CloseHandle(rd);
+        CloseHandle(wr);
+        return (DWORD)-1;
+    }
+    CloseHandle(wr);
+    std::string out;
+    char buf[4096];
+    DWORD got = 0;
+    while (ReadFile(rd, buf, sizeof(buf), &got, nullptr) && got > 0) {
+        if (out.size() < 8192) out.append(buf, got);
+    }
+    WaitForSingleObject(pi.hProcess, (DWORD)timeoutMs);
+    DWORD code = 1;
+    GetExitCodeProcess(pi.hProcess, &code);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    CloseHandle(rd);
+    if (code != 0 && errTail) *errTail = out;
+    return code;
+}
+
+// Prepara una celda/lapa a su tamaño. Devuelve la ruta del clip o vacío.
+static bool MosaicPrepClip(MosaicLayer& L, double dur, int* done, int total,
+                           std::string* err) {
+    if (L.type == "color" || L.inputIndex < 0) return true;
+    const int loops = (L.type == "video") ? MosaicLoops(L.dur, dur) : 1;
+    const std::wstring out = MosaicCachePath(L, dur, loops);
+    if (GetFileAttributesW(out.c_str()) != INVALID_FILE_ATTRIBUTES &&
+        MosaicFileSize(out) > 0) {
+        L.prep = out;
+        if (done) ++*done;
+        return true;
+    }
+    std::wstring ff = EditorFfmpegPath();
+    if (ff.empty()) {
+        if (err) *err = "ffmpeg no encontrado";
+        return false;
+    }
+
+    const double target = dur + (L.fade > 0.05 ? L.fade : 0.0);
+    std::string filter;
+    char b[2048];
+    if (L.type == "image") {
+        ComposeCell cc;
+        cc.file = L.file;
+        cc.w = L.w;
+        cc.h = L.h;
+        cc.cx = L.cx;
+        cc.cy = L.cy;
+        cc.cw = L.cw;
+        cc.ch = L.ch;
+        cc.fit = "expand";
+        cc.aspect = L.srcW > 0 && L.srcH > 0 ? (double)L.srcW / (double)L.srcH
+                                             : 16.0 / 9.0;
+        std::string chain = ComposeCellChain(cc, "[0:v]fps=30,");
+        if (chain.empty()) {
+            if (err) *err = "encuadre fuera del video";
+            return false;
+        }
+        sprintf_s(b,
+                  "%s,tpad=stop_mode=clone:stop_duration=2,trim=duration=%.3f,"
+                  "setpts=PTS-STARTPTS[v]",
+                  chain.c_str(), dur);
+        filter = b;
+    } else {
+        const double speed = target / (L.dur * loops);
+        std::string loopLabels;
+        if (loops > 1) {
+            std::string labels;
+            for (int k = 0; k < loops; ++k) {
+                labels += "[s" + std::to_string(k) + "]";
+            }
+            sprintf_s(b, "[0:v]split=%d%s", loops, labels.c_str());
+            filter = b;
+            filter += ";" + labels + "concat=n=" + std::to_string(loops) +
+                      ":v=1:a=0[loop]";
+        } else {
+            filter = "[0:v]null[loop]";
+        }
+        sprintf_s(b, ";[loop]setpts=PTS*%.6f[ts]", speed);
+        filter += b;
+
+        ComposeCell cc;
+        cc.file = L.file;
+        cc.w = L.w;
+        cc.h = L.h;
+        cc.cx = L.cx;
+        cc.cy = L.cy;
+        cc.cw = L.cw;
+        cc.ch = L.ch;
+        cc.fit = "expand";
+        cc.aspect = L.srcW > 0 && L.srcH > 0 ? (double)L.srcW / (double)L.srcH
+                                             : 16.0 / 9.0;
+        std::string chain = ComposeCellChain(cc, "[ts]");
+        if (chain.empty()) {
+            if (err) *err = "encuadre fuera del video";
+            return false;
+        }
+        sprintf_s(b,
+                  "%s,tpad=stop_mode=clone:stop_duration=2,trim=duration=%.3f,"
+                  "setpts=PTS-STARTPTS[fit]",
+                  chain.c_str(), target);
+        filter += ";" + std::string(b);
+
+        if (L.fade > 0.05) {
+            sprintf_s(b,
+                      ";[fit]split=3[fa][fb][fc];"
+                      "[fb]trim=start=0:end=%.3f,setpts=PTS-STARTPTS[fh];"
+                      "[fc]trim=start=%.3f,setpts=PTS-STARTPTS[ft];"
+                      "[fa]trim=start=%.3f:end=%.3f,setpts=PTS-STARTPTS[fm];"
+                      "[ft][fh]xfade=transition=fade:duration=%.3f:offset=0[fs];"
+                      "[fm][fs]concat=n=2:v=1:a=0[v]",
+                      L.fade, target - L.fade, L.fade, target - L.fade, L.fade);
+            filter += b;
+        } else {
+            sprintf_s(b,
+                      ";[fit]trim=duration=%.3f,setpts=PTS-STARTPTS[v]", dur);
+            filter += b;
+        }
+    }
+
+    std::wstring cmd = L"\"" + ff + L"\" -y -v error -nostats -threads 2 ";
+    if (L.type == "image") {
+        cmd += L"-loop 1 -t " + std::to_wstring((int)dur + 3) + L" ";
+    }
+    cmd += L"-i \"" + L.file + L"\" -filter_complex \"" +
+           Utf8ToWide(filter) +
+           L"\" -map \"[v]\" -an -c:v libx264 -preset veryfast -crf 20 "
+           L"-pix_fmt yuv420p -threads 2 -movflags +faststart \"" + out + L"\"";
+    std::string tail;
+    const DWORD code = RunWaitHidden(cmd, 900000, &tail);
+    if (code != 0 || MosaicFileSize(out) == 0) {
+        DeleteFileW(out.c_str());
+        if (err) *err = tail.empty() ? "ffmpeg fallo" : tail.substr(0, 300);
+        return false;
+    }
+    L.prep = out;
+    if (done) ++*done;
+    return true;
+}
+
 std::string MosaicWorkspace(const std::string& body) {
     // Un ffmpeg pesado a la vez: RunWithProgress ya toma g_encodeMutex.
     static std::mutex mosaicMutex;
@@ -1571,7 +1779,6 @@ std::string MosaicWorkspace(const std::string& body) {
     }
 
     // Resolver medios. `dur` = la más larga de las capas con vídeo.
-    // Descargar los que falten puede tardar: se informa en /api/progress.
     SetProgress(true, -1, "descargando medios");
     double dur = 0;
     int inputs = 0;
@@ -1639,202 +1846,218 @@ std::string MosaicWorkspace(const std::string& body) {
     if (dur > 600) dur = 600;    // tope de seguridad
     DlLog("mosaic: %dx%d, %d entradas, dur %.2f", cols, rows, inputs, dur);
 
-    // Orden de entradas de ffmpeg (inputIndex).
-    std::vector<MosaicLayer*> sources((size_t)inputs, nullptr);
-    if (bg.inputIndex >= 0) sources[(size_t)bg.inputIndex] = &bg;
+    // ---- Pasada 1: preparar celdas y capas libres a su tamaño -------------
+    int totalPrep = 0;
+    for (const auto& c : cells) {
+        if (c.inputIndex >= 0) ++totalPrep;
+    }
+    for (const auto& L : layers) {
+        if (L.inputIndex >= 0) ++totalPrep;
+    }
+    int donePrep = 0;
+    std::string prepErr;
     for (auto& c : cells) {
-        if (c.inputIndex >= 0) sources[(size_t)c.inputIndex] = &c;
+        if (c.inputIndex < 0) continue;
+        SetProgress(true, totalPrep ? donePrep * 100 / totalPrep : 0,
+                    "preparando celdas " + std::to_string(donePrep + 1) + "/" +
+                        std::to_string(totalPrep));
+        if (!MosaicPrepClip(c, dur, &donePrep, totalPrep, &prepErr)) {
+            SetProgress(false, -1, "");
+            return "{\"ok\":false,\"error\":\"no se pudo preparar la celda\","
+                   "\"detail\":\"" + JsonEsc(prepErr) + "\"}";
+        }
     }
     for (auto& L : layers) {
-        if (L.inputIndex >= 0) sources[(size_t)L.inputIndex] = &L;
+        if (L.inputIndex < 0) continue;
+        SetProgress(true, totalPrep ? donePrep * 100 / totalPrep : 0,
+                    "preparando capas " + std::to_string(donePrep + 1) + "/" +
+                        std::to_string(totalPrep));
+        if (!MosaicPrepClip(L, dur, &donePrep, totalPrep, &prepErr)) {
+            SetProgress(false, -1, "");
+            return "{\"ok\":false,\"error\":\"no se pudo preparar la capa\","
+                   "\"detail\":\"" + JsonEsc(prepErr) + "\"}";
+        }
     }
 
-    std::string filter;
-    std::string prev;
-    int tagId = 0;
+    // ---- Pasada 2: componer desde los clips preparados --------------------
+    // Entradas: fondo (si no es color) + clips de celdas + clips de capas.
+    std::vector<std::wstring> media;
+    int bgIdx = -1;
+    if (bg.type == "video" || bg.type == "image") {
+        bgIdx = (int)media.size();
+        media.push_back(bg.file);
+    }
+    std::vector<int> cellIn(cells.size(), -1);
+    for (size_t i = 0; i < cells.size(); ++i) {
+        if (!cells[i].prep.empty()) {
+            cellIn[i] = (int)media.size();
+            media.push_back(cells[i].prep);
+        }
+    }
+    std::vector<int> layerIn(layers.size(), -1);
+    for (size_t i = 0; i < layers.size(); ++i) {
+        if (!layers[i].prep.empty()) {
+            layerIn[i] = (int)media.size();
+            media.push_back(layers[i].prep);
+        }
+    }
 
-    // Cadena de una capa -> [Lx] de longitud `target` (con fundido si fade>0
-    // se recorta después a `dur`).
-    auto addLayer = [&](const MosaicLayer& L, double target, bool fade,
-                        std::string& label) -> bool {
-        const std::string tag = "L" + std::to_string(tagId++);
-        if (L.type == "color") {
-            std::string hex = L.color;
-            if (!hex.empty() && hex[0] == '#') hex = hex.substr(1);
-            if (hex.size() != 6) return false;
-            filter += ";color=c=0x" + hex +
-                      ":s=" + std::to_string(L.w) + "x" + std::to_string(L.h) +
-                      ":r=30:d=" + std::to_string(dur) +
-                      ",setpts=PTS-STARTPTS[" + tag + "]";
-            label = tag;
-            return true;
-        }
-        if (L.inputIndex < 0) return false;
-        const std::string in = "[" + std::to_string(L.inputIndex) + ":v]";
-        ComposeCell cc;
-        cc.file = L.file;
-        cc.inputFile = L.file;
-        cc.w = L.w;
-        cc.h = L.h;
-        cc.cx = L.cx;
-        cc.cy = L.cy;
-        cc.cw = L.cw;
-        cc.ch = L.ch;
-        cc.fit = "expand";
-        cc.aspect = L.srcW > 0 && L.srcH > 0 ? (double)L.srcW / (double)L.srcH
-                                             : 16.0 / 9.0;
-        if (L.type == "image") {
-            std::string chain = ComposeCellChain(cc, in + "fps=30,");
-            if (chain.empty()) return false;
-            filter += ";" + chain + ",tpad=stop_mode=clone:stop_duration=2,"
-                      "trim=duration=" + std::to_string(dur) +
-                      ",setpts=PTS-STARTPTS[" + tag + "]";
-            label = tag;
-            return true;
-        }
-        // Vídeo: repetir y estirar hasta `target`.
-        const double ratio = L.dur / dur;
-        int loops = 1;
-        if (ratio < 0.4) {
-            loops = (int)(1.0 / ratio);
-            if (loops < 2) loops = 2;
-            if (loops > 32) loops = 32;
-        } else if (ratio < 0.6) {
-            loops = 2;
-        }
-        const double speed = target / (L.dur * loops);
-        const std::string loop = "lp" + std::to_string(tagId++);
-        if (loops > 1) {
-            std::string labels;
-            for (int k = 0; k < loops; ++k) {
-                labels += "[" + loop + "_" + std::to_string(k) + "]";
-            }
-            filter += ";" + in + "split=" + std::to_string(loops) + labels;
-            filter += ";" + labels + "concat=n=" + std::to_string(loops) +
-                      ":v=1:a=0[" + loop + "]";
-        } else {
-            filter += ";" + in + "null[" + loop + "]";
-        }
-        char b[2048];
-        sprintf_s(b, "[%s]setpts=PTS*%.6f[ts%s]", loop.c_str(), speed,
-                  loop.c_str());
-        filter += ";" + std::string(b);
-
-        ComposeCell cc2 = cc;
-        std::string chain = ComposeCellChain(cc2, "[ts" + loop + "]");
-        if (chain.empty()) return false;
-        sprintf_s(b, ",tpad=stop_mode=clone:stop_duration=2,trim=duration=%.3f,"
-                     "setpts=PTS-STARTPTS[fit%s]", target, loop.c_str());
-        chain += b;
-        filter += ";" + chain;
-
-        if (fade && L.fade > 0.05) {
-            sprintf_s(b,
-                      ";[fit%s]split=3[%s_a][%s_b][%s_c];"
-                      "[%s_b]trim=start=0:end=%.3f,setpts=PTS-STARTPTS[%s_h];"
-                      "[%s_c]trim=start=%.3f,setpts=PTS-STARTPTS[%s_t];"
-                      "[%s_a]trim=start=%.3f:end=%.3f,setpts=PTS-STARTPTS[%s_m];"
-                      "[%s_t][%s_h]xfade=transition=fade:duration=%.3f:"
-                      "offset=0[%s_s];"
-                      "[%s_m][%s_s]concat=n=2:v=1:a=0[%s]",
-                      loop.c_str(),
-                      loop.c_str(), loop.c_str(), loop.c_str(),
-                      loop.c_str(), L.fade, loop.c_str(),
-                      loop.c_str(), target - L.fade, loop.c_str(),
-                      loop.c_str(), L.fade, target - L.fade, loop.c_str(),
-                      loop.c_str(), loop.c_str(), L.fade, loop.c_str(),
-                      loop.c_str(), loop.c_str(),
-                      tag.c_str());
-            filter += b;
-            label = tag;
-            return true;
-        }
-        sprintf_s(b, ";[fit%s]trim=duration=%.3f,setpts=PTS-STARTPTS[%s]",
-                  loop.c_str(), dur, tag.c_str());
-        filter += b;
-        label = tag;
-        return true;
-    };
-
-    // Capa 1: fondo. La base es siempre negra (así el filtro nunca empieza
-    // por ';', que ffmpeg rechaza) y el fondo se superpone encima.
-    filter = "color=c=black:s=" + std::to_string(W) + "x" +
-             std::to_string(H) + ":r=30:d=" + std::to_string(dur) + "[base0]";
+    std::string filter = "color=c=black:s=" + std::to_string(W) + "x" +
+                         std::to_string(H) + ":r=30:d=" + std::to_string(dur) +
+                         "[base0]";
     int slot = 0;
-    if (bg.type != "empty") {
+
+    // Fondo: se usa el original (un solo flujo). Bucle/estirado en línea.
+    if (bgIdx >= 0) {
         std::string lbl;
-        if (addLayer(bg, dur, false, lbl)) {
-            filter += ";[base0][" + lbl + "]overlay=0:0:shortest=1[base1]";
+        const std::string in = "[" + std::to_string(bgIdx) + ":v]";
+        if (bg.type == "image") {
+            ComposeCell cc;
+            cc.file = bg.file;
+            cc.w = W;
+            cc.h = H;
+            cc.cx = bg.cx;
+            cc.cy = bg.cy;
+            cc.cw = bg.cw;
+            cc.ch = bg.ch;
+            cc.fit = "expand";
+            cc.aspect = bg.srcW > 0 && bg.srcH > 0
+                            ? (double)bg.srcW / (double)bg.srcH
+                            : 16.0 / 9.0;
+            std::string chain = ComposeCellChain(cc, in + "fps=30,");
+            char b[512];
+            sprintf_s(b,
+                      "%s,tpad=stop_mode=clone:stop_duration=2,trim=duration=%.3f,"
+                      "setpts=PTS-STARTPTS[bgi]",
+                      chain.c_str(), dur);
+            filter += ";" + std::string(b);
+            lbl = "bgi";
+        } else {
+            const int loops = MosaicLoops(bg.dur, dur);
+            const double speed = dur / (bg.dur * loops);
+            if (loops > 1) {
+                std::string labels;
+                for (int k = 0; k < loops; ++k) {
+                    labels += "[bgs" + std::to_string(k) + "]";
+                }
+                filter += ";" + in + "split=" + std::to_string(loops) + labels;
+                filter += ";" + labels + "concat=n=" + std::to_string(loops) +
+                          ":v=1:a=0[bgl]";
+            } else {
+                filter += ";" + in + "null[bgl]";
+            }
+            char b[512];
+            sprintf_s(b, ";[bgl]setpts=PTS*%.6f[bgt]", speed);
+            filter += b;
+            ComposeCell cc;
+            cc.file = bg.file;
+            cc.w = W;
+            cc.h = H;
+            cc.cx = bg.cx;
+            cc.cy = bg.cy;
+            cc.cw = bg.cw;
+            cc.ch = bg.ch;
+            cc.fit = "expand";
+            cc.aspect = bg.srcW > 0 && bg.srcH > 0
+                            ? (double)bg.srcW / (double)bg.srcH
+                            : 16.0 / 9.0;
+            std::string chain = ComposeCellChain(cc, "[bgt]");
+            sprintf_s(b,
+                      "%s,tpad=stop_mode=clone:stop_duration=2,trim=duration=%.3f,"
+                      "setpts=PTS-STARTPTS[bgi]",
+                      chain.c_str(), dur);
+            filter += ";" + std::string(b);
+            lbl = "bgi";
+        }
+        filter += ";[base0][" + lbl + "]overlay=0:0:shortest=1[base1]";
+        slot = 1;
+    } else if (bg.type == "color") {
+        std::string hex = bg.color;
+        if (!hex.empty() && hex[0] == '#') hex = hex.substr(1);
+        if (hex.size() == 6) {
+            filter += ";color=c=0x" + hex + ":s=" + std::to_string(W) + "x" +
+                      std::to_string(H) + ":r=30:d=" + std::to_string(dur) +
+                      ",setpts=PTS-STARTPTS[bgc]";
+            filter += ";[base0][bgc]overlay=0:0:shortest=1[base1]";
             slot = 1;
         }
     }
 
-    // Capa 2: celdas de la cuadrícula.
+    // Celdas: clips ya preparados (tamaño de celda).
     for (size_t i = 0; i < cells.size() && i < (size_t)(cols * rows); ++i) {
         const MosaicLayer& c = cells[i];
-        if (c.type == "empty") continue;
-        const double target = dur + (c.fade > 0.05 ? c.fade : 0.0);
         std::string lbl;
-        if (!addLayer(c, target, true, lbl)) continue;
+        if (c.type == "color") {
+            std::string hex = c.color;
+            if (!hex.empty() && hex[0] == '#') hex = hex.substr(1);
+            if (hex.size() != 6) continue;
+            lbl = "cc" + std::to_string(i);
+            filter += ";color=c=0x" + hex + ":s=" + std::to_string(c.w) + "x" +
+                      std::to_string(c.h) + ":r=30:d=" + std::to_string(dur) +
+                      ",setpts=PTS-STARTPTS[" + lbl + "]";
+        } else if (cellIn[i] >= 0) {
+            lbl = "ci" + std::to_string(i);
+            filter += ";" + std::string("[") + std::to_string(cellIn[i]) +
+                      ":v]setsar=1[" + lbl + "]";
+        } else {
+            continue;
+        }
         const std::string next = "base" + std::to_string(slot + 1);
         filter += ";[base" + std::to_string(slot) + "][" + lbl + "]overlay=" +
                   std::to_string(c.x) + ":" + std::to_string(c.y) +
                   ":shortest=1[" + next + "]";
-        prev = next;
         ++slot;
     }
-    // Capa 3: elementos libres encima de todo (posición, tamaño y rotación
-    // propios). No hay límite de elementos.
-    int over = slot;
+
+    // Capas libres: clip preparado + rotación opcional.
     for (size_t i = 0; i < layers.size(); ++i) {
-        MosaicLayer& L = layers[i];
-        if (L.type == "empty") continue;
-        const double target = dur + (L.fade > 0.05 ? L.fade : 0.0);
+        const MosaicLayer& L = layers[i];
         std::string lbl;
-        if (!addLayer(L, target, true, lbl)) continue;
+        if (L.type == "color") {
+            std::string hex = L.color;
+            if (!hex.empty() && hex[0] == '#') hex = hex.substr(1);
+            if (hex.size() != 6) continue;
+            lbl = "lc" + std::to_string(i);
+            filter += ";color=c=0x" + hex + ":s=" + std::to_string(L.w) + "x" +
+                      std::to_string(L.h) + ":r=30:d=" + std::to_string(dur) +
+                      ",setpts=PTS-STARTPTS[" + lbl + "]";
+        } else if (layerIn[i] >= 0) {
+            lbl = "li" + std::to_string(i);
+            filter += ";" + std::string("[") + std::to_string(layerIn[i]) +
+                      ":v]setsar=1[" + lbl + "]";
+        } else {
+            continue;
+        }
         int ox = L.x;
         int oy = L.y;
-        if (fabs(L.rot) > 0.01) {
+        if (fabs(L.rot) > 0.01 && lbl[0] == 'l') {
             const double a = L.rot * 3.14159265358979 / 180.0;
             const int ow = (int)ceil(fabs(L.w * cos(a)) + fabs(L.h * sin(a)));
             const int oh = (int)ceil(fabs(L.w * sin(a)) + fabs(L.h * cos(a)));
-            const std::string rot = "rot" + std::to_string(i);
+            const std::string rot = "lr" + std::to_string(i);
             char rb[256];
-            sprintf_s(rb, ";[%s]format=rgba,rotate=%.6f:ow=%d:oh=%d:c=none[%s]",
+            sprintf_s(rb,
+                      ";[%s]format=rgba,rotate=%.6f:ow=%d:oh=%d:c=none[%s]",
                       lbl.c_str(), a, ow, oh, rot.c_str());
             filter += rb;
             lbl = rot;
             ox = L.x + (L.w - ow) / 2;
             oy = L.y + (L.h - oh) / 2;
         }
-        const std::string next = "base" + std::to_string(over + 1);
-        filter += ";[base" + std::to_string(over) + "][" + lbl + "]overlay=" +
+        const std::string next = "base" + std::to_string(slot + 1);
+        filter += ";[base" + std::to_string(slot) + "][" + lbl + "]overlay=" +
                   std::to_string(ox) + ":" + std::to_string(oy) +
                   ":shortest=1[" + next + "]";
-        over++;
+        ++slot;
     }
-    slot = over;
-    if (slot == 0 && bg.type == "empty") {
+    if (slot == 0) {
         return "{\"ok\":false,\"error\":\"sin contenido dibujable\"}";
     }
 
-    // Longitud exacta + último fotograma clonado si algo quedó corto.
-    filter += ";[base" + std::to_string(slot) + "]tpad=stop_mode=clone:"
-              "stop_duration=1,trim=duration=" + std::to_string(dur) +
-              ",setpts=PTS-STARTPTS[out]";
-    {
-        char dbg[128];
-        sprintf_s(dbg, "mosaic: filtro %zu bytes, %d celdas, %d libres",
-                  filter.size(), (int)cells.size(), (int)layers.size());
-        DlLog("%s", dbg);
-        FILE* df = nullptr;
-        _wfopen_s(&df, (g_baseDir + L"\\res\\cache\\mosaic-filter.txt").c_str(),
-                  L"wb");
-        if (df) {
-            fwrite(filter.data(), 1, filter.size(), df);
-            fclose(df);
-        }
-    }
+    // Longitud exacta.
+    filter += ";[base" + std::to_string(slot) +
+              "]tpad=stop_mode=clone:stop_duration=1,trim=duration=" +
+              std::to_string(dur) + ",setpts=PTS-STARTPTS[out]";
 
     const std::wstring dir = g_baseDir + L"\\res\\mosaics";
     CreateDirectoryW((g_baseDir + L"\\res").c_str(), nullptr);
@@ -1854,23 +2077,18 @@ std::string MosaicWorkspace(const std::string& body) {
 
     std::wstring cmd = L"\"" + ff + L"\" -y -v error -nostats -filter_threads 1 "
                        L"-threads 2 ";
-    for (auto* L : sources) {
-        if (!L) continue;
-        if (L->type == "image") {
-            cmd += L"-loop 1 -t " + std::to_wstring((int)dur + 3) + L" ";
-        }
-        cmd += L"-i \"" + L->file + L"\" ";
-    }
+    for (const auto& f : media) cmd += L"-i \"" + f + L"\" ";
     cmd += L"-filter_complex \"" + Utf8ToWide(filter) + L"\" -map \"[out]\" -an "
            L"-c:v libx264 -preset veryfast -b:v " + std::to_wstring(kbps) +
            L"k -maxrate " + std::to_wstring(kbps) + L"k -bufsize " +
            std::to_wstring(kbps * 2) + L"k -profile:v high -pix_fmt yuv420p "
            L"-threads 2 -movflags +faststart -progress pipe:1 \"" + out + L"\"";
 
-    SetProgress(true, 0, "mosaico");
+    SetProgress(true, 0, "componiendo el mosaico");
     g_compPct = 0;
     std::string ffErr;
-    DlLog("mosaic: ffmpeg (%zu bytes de comando)", cmd.size());
+    DlLog("mosaic: componer %d clips, filtro %zu bytes", (int)media.size(),
+          filter.size());
     const DWORD code = RunWithProgress(cmd, dur, &g_compPct, nullptr, &ffErr);
     DlLog("mosaic: ffmpeg code=%lu", (unsigned long)code);
     g_compPct = -1;
@@ -1895,18 +2113,25 @@ std::string MosaicWorkspace(const std::string& body) {
     it.tags = "mosaico,escritorio";
     it.width = W;
     it.height = H;
-    // Ficha junto al vídeo: el plugin "mosaics" la usa para el título.
+    // Ficha junto al vídeo: el plugin "mosaics" la usa para el título y el
+    // editor para recuperar el proyecto de este mosaico.
     {
-        char meta[256];
-        sprintf_s(meta,
+        std::string proj = body;
+        while (!proj.empty() && (proj.back() == '\n' || proj.back() == '\r' ||
+                                 proj.back() == ' '))
+            proj.pop_back();
+        if (!proj.empty() && proj.back() == '}') proj.pop_back();
+        char head[256];
+        sprintf_s(head,
                   "{\"title\":\"Mosaico %dx%d\",\"width\":%d,\"height\":%d,"
-                  "\"seconds\":%d}",
+                  "\"seconds\":%d,\"project\":",
                   cols, rows, W, H, (int)dur);
+        std::string meta = head + proj + "}}";
         const std::wstring jf = dir + L"\\" + Utf8ToWide(idb) + L".json";
         FILE* mf = nullptr;
         _wfopen_s(&mf, jf.c_str(), L"wb");
         if (mf) {
-            fwrite(meta, 1, strlen(meta), mf);
+            fwrite(meta.data(), 1, meta.size(), mf);
             fclose(mf);
         }
     }
@@ -3281,10 +3506,70 @@ void Handle(SOCKET client, bool local) {
             CreateDirectoryW((g_baseDir + L"\\res\\config").c_str(), nullptr);
             WriteWholeFile(f, body);
             SendText(client, 200, "OK", "{\"ok\":true}");
+            return;
+        }
+        // ?key=mosaics:<id> -> proyecto guardado junto a ese mosaico.
+        size_t kp = query.find("key=");
+        if (kp != std::string::npos) {
+            std::string key = UrlDecode(query.substr(kp + 4));
+            size_t amp = key.find('&');
+            if (amp != std::string::npos) key = key.substr(0, amp);
+            std::string id;
+            if (key.rfind("mosaics:", 0) == 0) id = key.substr(8);
+            if (!id.empty() && id.find("..") == std::string::npos &&
+                id.find('\\') == std::string::npos &&
+                id.find('/') == std::string::npos) {
+                std::string meta = ReadWholeFile(g_baseDir + L"\\res\\mosaics\\" +
+                                                 Utf8ToWide(id) + L".json");
+                size_t pp = meta.find("\"project\"");
+                std::string obj;
+                if (pp != std::string::npos && JsonObjectAt(meta, pp, obj)) {
+                    SendText(client, 200, "OK", obj);
+                    return;
+                }
+            }
+            SendText(client, 404, "Not Found", "{\"error\":\"sin proyecto\"}");
+            return;
+        }
+        std::string cur = ReadWholeFile(f);
+        SendText(client, 200, "OK", cur.empty() ? "{}" : cur);
+    } else if (path == "/api/mosaic/autosave") {
+        const std::wstring f = g_baseDir + L"\\res\\config\\mosaic-autosave.json";
+        if (method == "POST") {
+            CreateDirectoryW((g_baseDir + L"\\res\\config").c_str(), nullptr);
+            WriteWholeFile(f, body);
+            SendText(client, 200, "OK", "{\"ok\":true}");
         } else {
             std::string cur = ReadWholeFile(f);
             SendText(client, 200, "OK", cur.empty() ? "{}" : cur);
         }
+    } else if (path == "/api/mosaic/delete" && method == "POST") {
+        std::string key;
+        size_t kp = query.find("key=");
+        if (kp != std::string::npos) {
+            key = UrlDecode(query.substr(kp + 4));
+            size_t amp = key.find('&');
+            if (amp != std::string::npos) key = key.substr(0, amp);
+        }
+        std::string id;
+        if (key.rfind("mosaics:", 0) == 0) id = key.substr(8);
+        if (id.empty() || id.find("..") != std::string::npos ||
+            id.find('\\') != std::string::npos ||
+            id.find('/') != std::string::npos) {
+            SendText(client, 400, "Bad Request", "{\"ok\":false,\"error\":\"key\"}");
+            return;
+        }
+        const std::wstring base = g_baseDir + L"\\res\\mosaics\\" + Utf8ToWide(id);
+        const bool delMp4 = DeleteFileW((base + L".mp4").c_str()) != 0;
+        DeleteFileW((base + L".json").c_str());
+        std::vector<RemoteItem> keep;
+        for (const auto& it : GetRemoteRegistryCopy()) {
+            if (it.key != key) keep.push_back(it);
+        }
+        SetRemoteRegistry(keep);
+        SaveCatalogSnapshot(g_baseDir, GetRemoteRegistryCopy());
+        SendText(client, 200, "OK",
+                 delMp4 ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"no se pudo borrar\"}");
     } else if (path == "/api/progress") {
         SendText(client, 200, "OK", ProgressJson());
     } else if (path == "/api/prepare" && method == "POST") {

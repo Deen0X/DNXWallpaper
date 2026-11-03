@@ -686,3 +686,30 @@ body.panning * { user-select: none !important; cursor: grabbing !important; }
   0% { margin-left: -30%; }
   100% { margin-left: 100%; }
 }
+
+/* Menú contextual del catálogo (mosaicos). */
+.mo-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 210px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #1b1f27;
+  border: 1px solid #2a2a33;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+.mo-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #e8eaed;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.mo-menu button:hover { background: #262a34; }
+.mo-menu button.danger { color: #ff8a8a; }

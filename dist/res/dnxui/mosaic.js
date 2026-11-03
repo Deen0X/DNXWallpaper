@@ -291,7 +291,7 @@
   function scheduleSave() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      api('/api/mosaic/project', {
+      api('/api/mosaic/autosave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload())
@@ -299,40 +299,51 @@
     }, 600);
   }
 
+  // Aplica un proyecto (guardado o recuperado de un mosaico) al editor.
+  function applyProject(p) {
+    if (!p || !p.cells || !p.cells.length) return false;
+    S.cols = Math.max(1, Math.min(5, Number(p.cols) || 2));
+    S.rows = Math.max(1, Math.min(5, Number(p.rows) || 2));
+    S.w = Number(p.width) || S.w;
+    S.h = Number(p.height) || S.h;
+    S.bg = emptyLayer();
+    if (p.background) {
+      S.bg = Object.assign(emptyLayer(), {
+        type: p.background.type || 'empty',
+        key: p.background.key || '',
+        color: p.background.color || '',
+        fade: Number(p.background.fade) || 0
+      });
+    }
+    S.cells = (p.cells || []).map((c) => Object.assign(emptyLayer(), {
+      type: c.type || (c.key ? 'video' : (c.color ? 'color' : 'empty')),
+      key: c.key || '', color: c.color || '',
+      fade: Number(c.fade) || 0,
+      rect: { x: c.cx || 0, y: c.cy || 0, w: c.cw || 1, h: c.ch || 1 }
+    }));
+    S.layers = (p.layers || []).map((l) => Object.assign(emptyLayer(), {
+      type: l.type || (l.key ? 'video' : (l.color ? 'color' : 'empty')),
+      key: l.key || '', color: l.color || '',
+      fade: Number(l.fade) || 0,
+      x: Number(l.x) || 0, y: Number(l.y) || 0,
+      w: Number(l.w) || 400, h: Number(l.h) || 300,
+      rot: Number(l.rot) || 0,
+      rect: { x: l.cx || 0, y: l.cy || 0, w: l.cw || 1, h: l.ch || 1 }
+    }));
+    ensureCells();
+    S.sel = null;
+    syncControls();
+    render();
+    renderInspector();
+    return true;
+  }
+
+  // Al arrancar se recupera el estado de la sesión (autosave) o, si no hay,
+  // el último proyecto guardado a mano.
   function loadProject() {
-    return api('/api/mosaic/project').then((p) => {
-      if (!p || !p.cells || !p.cells.length) return false;
-      S.cols = Math.max(1, Math.min(5, Number(p.cols) || 2));
-      S.rows = Math.max(1, Math.min(5, Number(p.rows) || 2));
-      S.w = Number(p.width) || S.w;
-      S.h = Number(p.height) || S.h;
-      if (p.background) {
-        S.bg = Object.assign(emptyLayer(), {
-          type: p.background.type || 'empty',
-          key: p.background.key || '',
-          color: p.background.color || '',
-          fade: Number(p.background.fade) || 0
-        });
-      }
-      S.cells = (p.cells || []).map((c) => Object.assign(emptyLayer(), {
-        type: c.type || (c.key ? 'video' : (c.color ? 'color' : 'empty')),
-        key: c.key || '', color: c.color || '',
-        fade: Number(c.fade) || 0,
-        rect: { x: c.cx || 0, y: c.cy || 0, w: c.cw || 1, h: c.ch || 1 }
-      }));
-      S.layers = (p.layers || []).map((l) => Object.assign(emptyLayer(), {
-        type: l.type || (l.key ? 'video' : (l.color ? 'color' : 'empty')),
-        key: l.key || '', color: l.color || '',
-        fade: Number(l.fade) || 0,
-        x: Number(l.x) || 0, y: Number(l.y) || 0,
-        w: Number(l.w) || 400, h: Number(l.h) || 300,
-        rot: Number(l.rot) || 0,
-        rect: { x: l.cx || 0, y: l.cy || 0, w: l.cw || 1, h: l.ch || 1 }
-      }));
-      syncControls();
-      render();
-      renderInspector();
-      return true;
+    return api('/api/mosaic/autosave').then((p) => {
+      if (p && p.cells && p.cells.length) return applyProject(p);
+      return api('/api/mosaic/project').then((q) => applyProject(q));
     }).catch(() => false);
   }
 
@@ -574,6 +585,12 @@
       select('layer', i);
       pickFor('layer', i);
     };
+    $('#moLoad').onclick = () => {
+      api('/api/mosaic/project').then((p) => {
+        if (applyProject(p)) toast('Proyecto cargado');
+        else toast('No hay proyecto guardado');
+      }).catch(() => toast('No se pudo cargar el proyecto'));
+    };
     $('#moGen').onclick = generate;
     $('#moSave').onclick = () => {
       api('/api/mosaic/project', {
@@ -639,6 +656,77 @@
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
   }
+
+
+  // ---------------------------------------------- menú contextual del catálogo
+  function closeMenu() {
+    const m = document.getElementById('moMenu');
+    if (m) m.remove();
+  }
+
+  function showMenu(x, y, key) {
+    closeMenu();
+    const menu = document.createElement('div');
+    menu.id = 'moMenu';
+    menu.className = 'mo-menu';
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.innerHTML =
+      '<button data-act="load">Cargar proyecto en el editor</button>' +
+      '<button data-act="delete" class="danger">Eliminar mosaico</button>';
+    document.body.appendChild(menu);
+    menu.querySelectorAll('button').forEach((b) => {
+      b.onclick = (ev) => {
+        ev.stopPropagation();
+        const act = b.dataset.act;
+        closeMenu();
+        if (act === 'load') {
+          api('/api/mosaic/project?key=' + encodeURIComponent(key))
+            .then((p) => {
+              if (!p || !p.cells) {
+                toast('Este mosaico no tiene proyecto guardado');
+                return;
+              }
+              if (applyProject(p)) {
+                const nav = document.querySelector('[data-sec=mosaic]');
+                if (nav) nav.click();
+                toast('Proyecto cargado');
+              }
+            })
+            .catch(() => toast('No se pudo cargar el proyecto'));
+          return;
+        }
+        if (!window.confirm('¿Eliminar este mosaico? Se borra el vídeo generado.')) {
+          return;
+        }
+        api('/api/mosaic/delete?key=' + encodeURIComponent(key), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        }).then((r) => {
+          if (r && r.ok) {
+            const el = document.querySelector(
+              '#catalog .thumb[data-key="' + encodeURIComponent(key) + '"]');
+            if (el) el.remove();
+            toast('Mosaico eliminado');
+          } else {
+            toast('No se pudo eliminar');
+          }
+        }).catch(() => toast('No se pudo eliminar'));
+      };
+    });
+  }
+
+  document.addEventListener('contextmenu', (ev) => {
+    const el = ev.target.closest('#catalog .thumb');
+    if (!el) return;
+    const key = decodeURIComponent(el.dataset.key || '');
+    if (key.indexOf('mosaics:') !== 0) return;
+    ev.preventDefault();
+    showMenu(ev.clientX, ev.clientY, key);
+  });
+  document.addEventListener('click', closeMenu);
+  window.addEventListener('scroll', closeMenu, true);
 
   window.mosaicInit = init;
   document.addEventListener('DOMContentLoaded', () => {
