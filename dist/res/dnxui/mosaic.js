@@ -387,8 +387,8 @@
   function applyProject(p) {
     if (!p || !p.cells || !p.cells.length) return false;
     S.aspect = guessAspect(p);
-    S.cols = Math.max(1, Math.min(5, Number(p.cols) || 2));
-    S.rows = Math.max(1, Math.min(5, Number(p.rows) || 2));
+    S.cols = Math.max(1, Math.min(10, Number(p.cols) || 2));
+    S.rows = Math.max(1, Math.min(10, Number(p.rows) || 2));
     S.w = Number(p.width) || S.w;
     S.h = Number(p.height) || S.h;
     S.bg = emptyLayer();
@@ -445,9 +445,12 @@
     const n = S.cols * S.rows;
     w.hidden = n <= 4;
     if (n > 4) {
-      const fuerte = n > 9 ? ' Mucho ojo: a partir de 4x4 puede tardar varios minutos.' : '';
-      w.textContent = `⚠ ${n} celdas: se decodifican ${n} vídeos a la vez, ` +
-        `el vídeo tardará bastante en generarse.${fuerte}`;
+      let fuerte = '';
+      if (n > 60) fuerte = ' Con 8x8 o más puede tardar muchísimo y consumir bastante memoria.';
+      else if (n > 25) fuerte = ' Mucho ojo: a partir de 6x6 puede tardar muchos minutos.';
+      else if (n > 9) fuerte = ' A partir de 4x4 puede tardar varios minutos.';
+      w.textContent = `⚠ ${n} celdas: se decodifican ${n} vídeos, ` +
+        `el vídeo tardará en generarse.${fuerte}`;
     }
   }
 
@@ -629,7 +632,7 @@
 
     // Filas y columnas SOLO dividen el lienzo: no cambian su tamaño.
     $('#moCols').onchange = (e) => {
-      S.cols = Math.max(1, Math.min(5, Number(e.target.value) || 2));
+      S.cols = Math.max(1, Math.min(10, Number(e.target.value) || 2));
       e.target.value = S.cols;
       ensureCells();
       warnIfBig();
@@ -637,7 +640,7 @@
       scheduleSave();
     };
     $('#moRows').onchange = (e) => {
-      S.rows = Math.max(1, Math.min(5, Number(e.target.value) || 2));
+      S.rows = Math.max(1, Math.min(10, Number(e.target.value) || 2));
       e.target.value = S.rows;
       ensureCells();
       warnIfBig();

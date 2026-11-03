@@ -659,3 +659,10 @@ es/config/mosaic.json; **Cargar** lee ese mismo. Al arrancar se
 - El preview usa `layoutStage()` (ancho/alto explicitos) porque con
   `width:100%` + `max-height` la rejilla se aplastaba.
 - Tope del lienzo: 7680x4320 (si se pasa, se reduce manteniendo la proporcion).
+
+## Mosaico: tope 10x10 (2026-11-03)
+
+- Combos de filas/columnas 1..10 y tope del servidor 10 (antes 5). 10x10 = 100
+  celdas: la generacion en dos pasadas aguanta la memoria, pero puede tardar
+  mucho; el aviso de la UI escala (4x4 / 6x6 / 8x8 o mas).
+- El lienzo NO cambia con filas/columnas: solo se divide.
