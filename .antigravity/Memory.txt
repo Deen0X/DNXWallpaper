@@ -626,3 +626,15 @@ es/config/mosaic.json; **Cargar** lee ese mismo. Al arrancar se
   .mp4 y .json y lo quita del registro.
 - Cuidado con str.replace en Python: reemplaza TODAS las apariciones (me
   cambio el handler de Guardar a autosave).
+
+## Terminología: mosaico = proyecto (2026-11-03)
+
+- **Un mosaico guardado ES el proyecto**: res\mosaics\<id>.mp4 (el wallpaper)
+  + <id>.json (ficha con `project` = fondo, celdas y capas).
+- El estado que se edita en la sección es el **espacio de trabajo / borrador**:
+  autosave en `res/config/mosaic-autosave.json` y botón *Guardar borrador*
+  (`res/config/mosaic.json`). No es un "proyecto" de cara al usuario.
+- Para editar un mosaico guardado: ficha del catálogo → *Abrir en el editor de
+  mosaicos*, o clic derecho sobre la tarjeta. Si el json no tiene `project`
+  (mosaicos antiguos) se avisa.
+- Textos de UI: Guardar borrador / Recuperar borrador / Abrir en el editor.
