@@ -25,14 +25,24 @@ Windows y Android publicados y funcionando:
       corte directo. `/api/playlist/activate` conserva `displays[]` y
       `/api/playlist/stop` lo deja fijo sin perder la asignación. Verificado
       con 2 celdas a 3 s: 40 → 42 rotaciones y parada limpia.
-- [ ] **Modo Mosaico** (idea): varios wallpapers en cajas dentro de una misma
-      pantalla. El motor ya dibuja N vídeos en cajas (`displays[]` con
-      rectángulos propios, probado con 2 vídeos en 1 monitor). Falta:
-      - UI para definir rejilla / cajas arrastrando divisiones.
-      - Asignar un wallpaper a cada celda; imagen o vídeo por celda.
-      - Transición/borde opcional por celda.
-      - Persistir por monitor (`settings.displays.mosaic`).
-      - Atajo "pared de vídeos" NxM (mismo wallpaper repetido o distinto).
+- [x] **Modo Mosaico** (2026-11-03): sección propia (bajo Catálogo) que genera
+      **un wallpaper** (no playlist) y lo deja en el catálogo (`mosaic:`).
+      Tres capas: fondo, cuadrícula y elementos libres.
+      - Rejilla de columnas×filas (por defecto 2×2) con aviso si hay más de 4
+        celdas; resolución configurable (por defecto la del monitor).
+      - Cada celda: vídeo, imagen estática o color fijo. Aleatorio rellena solo
+        las celdas vacías (una celda con color cuenta como asignada).
+      - Duración = la del vídeo más largo; los cortos se estiran; 40-60 % se
+        repiten 2 veces; < 40 % se repiten los loops completos que quepan y se
+        estira el conjunto. Fundido de bucle por celda, zoom y paneo.
+      - Fondo a pantalla completa (vídeo/imagen/color) y capas libres sin
+        límite: mover, redimensionar, rotar y zoom/paneo propio.
+      - Proyecto guardado en `res/config/mosaic.json` y recuperable.
+      Verificado: 2×2 con fondo visible en la celda vacía, 3 vídeos con
+      fundido, 1 color y una capa rotada; 1920×1080, 15 s.
+- [ ] **Mosaico — pendiente menor**: arrastrar/redimensionar capas en la UI
+      (la lógica está, falta probarlo con ratón real) y borrar mosaicos
+      generados desde el catálogo.
 - [x] **Worker Python persistente — host** (2026-11-03): contrato v3 en
       `docs/plugin-contract-v3.md`; `RunPluginCommand` usa `serve` si el plugin
       declara `"protocol": 3` y cae al modo de un solo uso si falla o expira.

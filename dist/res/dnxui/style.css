@@ -623,3 +623,58 @@ body.panning * { user-select: none !important; cursor: grabbing !important; }
   overflow-wrap: anywhere;
   min-width: 0;
 }
+
+/* ------------------------------------------------------------ Mosaico */
+.mo-controls { flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+.mo-controls input[type="number"] { width: 76px; }
+.mo-controls .inline { display: inline-flex; align-items: center; gap: 4px; }
+.mo-stage {
+  position: relative;
+  width: 100%;
+  max-height: 54vh;
+  margin: 12px auto;
+  background: #101014;
+  border: 1px solid #2a2a33;
+  border-radius: 12px;
+  overflow: hidden;
+  user-select: none;
+}
+.mo-bg { position: absolute; inset: 0; overflow: hidden; }
+.mo-bg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mo-grid { position: absolute; inset: 0; display: grid; }
+.mo-cell {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  min-height: 24px;
+}
+.mo-cell.empty {
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mo-cell.sel { outline: 2px solid #8b7cff; outline-offset: -2px; z-index: 2; }
+.mo-plus { font-size: 26px; color: rgba(255, 255, 255, 0.35); }
+.mo-tag { position: absolute; left: 6px; top: 4px; font-size: 10px; color: rgba(255, 255, 255, 0.6); }
+.mo-layer {
+  position: absolute;
+  cursor: move;
+  outline: 1px dashed rgba(255, 255, 255, 0.25);
+  overflow: visible;
+}
+.mo-layer.sel { outline: 2px solid #8b7cff; z-index: 3; }
+.mo-layer > img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mo-h { position: absolute; width: 14px; height: 14px; background: #8b7cff; border-radius: 50%; }
+.mo-h.mo-resize { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.mo-h.mo-rotate { left: 50%; top: -18px; margin-left: -7px; cursor: grab; }
+.mo-inspector {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #2a2a33;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.mo-inspector .row { gap: 10px; align-items: center; flex-wrap: wrap; }
+.warn { color: #ffb020; font-size: 12px; }

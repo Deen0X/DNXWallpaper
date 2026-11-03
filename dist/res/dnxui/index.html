@@ -27,6 +27,10 @@
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         <span>Catálogo</span>
       </button>
+      <button class="nav-item" data-sec="mosaic">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v7M14 17.5h7"/></svg>
+        <span>Mosaico</span>
+      </button>
       <button class="nav-item" data-sec="tools">
         <svg viewBox="0 0 24 24"><path d="M14 4a5 5 0 0 0-6.5 6.5L4 14v6h6l3.5-3.5A5 5 0 0 0 20 10l-3 3-3-3 3-3a5 5 0 0 0-3-3z"/></svg>
         <span>Herramientas</span>
@@ -175,6 +179,69 @@
       </div>
       <div class="grid-thumbs" id="catalog"></div>
       <div class="more"><button id="more" class="btn ghost">Cargar más</button></div>
+    </section>
+
+    <!-- MOSAICO -->
+    <section class="sec" id="sec-mosaic">
+      <header class="sec-head">
+        <h1>Mosaico</h1>
+        <p class="muted">Genera un wallpaper con una rejilla de vídeos, una imagen de fondo y capas libres encima.</p>
+      </header>
+
+      <div class="panel">
+        <div class="row mo-controls">
+          <label class="mini">Columnas <input type="number" id="moCols" min="1" max="8" value="2"></label>
+          <label class="mini">Filas <input type="number" id="moRows" min="1" max="8" value="2"></label>
+          <label class="mini">Resolución
+            <span class="inline">
+              <input type="number" id="moW" min="320" step="2" value="1920"> ×
+              <input type="number" id="moH" min="240" step="2" value="1080">
+            </span>
+          </label>
+          <button class="btn ghost" id="moRandom" title="Asigna vídeos aleatorios a las celdas vacías">🎲 Aleatorio</button>
+          <button class="btn ghost" id="moBg" title="Elegir el fondo de la composición">Fondo…</button>
+          <button class="btn ghost" id="moAddLayer" title="Añadir un elemento libre">+ Capa libre</button>
+        </div>
+        <p class="muted" id="moHint" style="font-size:11px">
+          Capas: fondo (abajo), cuadrícula y elementos libres (arriba). Rueda = zoom; botón central = panear;
+          en una capa libre, arrastra para mover y usa los tiradores para tamaño y rotación.
+        </p>
+        <p class="warn" id="moWarn" hidden></p>
+
+        <div class="mo-stage" id="moStage"></div>
+
+        <div id="moInspector" class="mo-inspector" hidden>
+          <div class="row">
+            <b id="moSelName">Celda</b>
+            <button class="btn ghost" id="moPick">Cambiar…</button>
+            <button class="btn ghost" id="moClear">Quitar</button>
+            <button class="btn ghost" id="moReset" title="Quita el zoom y el paneo">⟲ Sin zoom</button>
+          </div>
+          <div class="row">
+            <label class="mini">Fundido
+              <select id="moFade">
+                <option value="0">Sin fundido</option>
+                <option value="0.5">0,5 s</option>
+                <option value="0.8">0,8 s</option>
+                <option value="1.5">1,5 s</option>
+              </select>
+            </label>
+            <label class="mini" id="moColorWrap">Color <input type="color" id="moColor" value="#1b1b22"></label>
+            <label class="mini" id="moRotWrap">Rotación
+              <input type="range" id="moRot" min="-45" max="45" step="1" value="0">
+              <span id="moRotVal">0°</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="moGen">Generar wallpaper</button>
+          <button class="btn ghost" id="moSave">Guardar proyecto</button>
+          <span class="grow"></span>
+          <span class="muted" id="moStatus"></span>
+        </div>
+        <div class="apply-track" id="moTrack" hidden><span id="moFill"></span></div>
+      </div>
     </section>
 
     <!-- HERRAMIENTAS -->
@@ -449,5 +516,6 @@
 <script src="/editor/qrcode.min.js"></script>
 <script src="/ui2/app.js"></script>
 <script src="/ui2/displays-v2.js"></script>
+<script src="/ui2/mosaic.js"></script>
 </body>
 </html>

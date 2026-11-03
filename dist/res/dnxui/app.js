@@ -1010,6 +1010,9 @@ function showSection(name) {
   if (name === 'connect') loadConn();
   if (name === 'plugins') loadPlugins();
   if (name === 'displays') loadDisplays();
+  if (name === 'mosaic' && typeof window.mosaicInit === 'function') {
+    window.mosaicInit();
+  }
   if (name === 'playlist') loadPlaylist();
 }
 

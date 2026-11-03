@@ -559,3 +559,34 @@
   Matar `DNXWallpaper*` antes de medir.
 - `local` responde `items:[]` si su `config.json` no tiene carpetas válidas;
   el worker no cambia eso.
+
+## Mosaico: generador de wallpaper (2026-11-03)
+
+- **Una sección, un vídeo**: `POST /api/mosaic` compone **un** wallpaper con
+  ffmpeg y lo registra como `mosaic:<id>` en el catálogo (visible, a diferencia
+  de `optimized:`). No es una playlist.
+- **Tres capas, en este orden**: fondo (pantalla completa) → cuadrícula
+  (`columns`×`rows`) → elementos libres (`layers[]`, sin límite). Las celdas
+  vacías dejan ver el fondo.
+- **Tipos de capa**: `video`, `image` (se le pone `-loop 1 -t dur`) y `color`
+  (`#rrggbb`). Una celda con color cuenta como asignada.
+- **Duración**: la del vídeo más largo. Repeticiones por celda:
+  `ratio = dur / maxDur`; `>= 0.6` → 1; `0.4-0.6` → 2; `< 0.4` → `floor(1/ratio)`.
+  Después `setpts=PTS*(target/(dur*loops))` para estirar y `tpad`+`trim` para
+  clavar la longitud. Fundido de bucle por celda (split/trim/xfade/concat).
+- **Capas libres**: caja `x,y,w,h` en píxeles + `rot` en grados; se escalan a su
+  caja, se rotan con `format=rgba,rotate=...:c=none` y se superponen centradas.
+- **Proyecto**: `res/config/mosaic.json` (GET/POST `/api/mosaic/project`);
+  incluye fondo, celdas, capas y la clave generada.
+- **Aleatorio**: `/api/mosaic/random?count=N&exclude=|k1|k2|` devuelve claves de
+  vídeo del catálogo (excluye `optimized`/`mosaic` y las ya usadas).
+- **Trampas**:
+  - `RunWithProgress` ya bloquea `g_encodeMutex`: **no** volver a bloquearlo en
+    el llamante (deadlock).
+  - El filtro **no** puede empezar por `;`: la base negra se crea siempre y el
+    fondo se superpone.
+  - `sprintf_s` de la cadena de fundido necesita búfer grande (>= 2048) y los
+    argumentos deben ir en orden (si no, se rompe la etiqueta de salida).
+  - `JsonObjectsInArray` debe parar en el `]` del array; si no, `layers` se
+    colaba como celdas.
+  - `JsonEsc` debe escapar caracteres de control (el stderr de ffmpeg los trae).

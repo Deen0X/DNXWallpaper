@@ -41,6 +41,10 @@ esize (debounce) sin recrear los medios.
   Probado con un plugin de prueba (ready, id, item en catalogo).
 - **Race en PythonPrefix()**: cache marcada antes de rellenarse; con el
   escaneo en paralelo un hilo leia vacio y el plugin no se ejecutaba.
+- **Mosaico**: seccion nueva (bajo Catalogo) que genera un wallpaper con
+  fondo + cuadricula + capas libres. Rejilla configurable (aviso >4), color
+  por celda, aleatorio solo en vacias, fundido/zoom/paneo por celda, capas
+  libres con mover/redimensionar/rotar y proyecto guardado.
 ## Sesión 2026-11-01: cola de miniaturas por plugin
 
 - Cola FIFO por proveedor con 12 workers globales y máximo 2 por plugin,
