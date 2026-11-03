@@ -190,14 +190,28 @@
 
       <div class="panel">
         <div class="row mo-controls">
-          <label class="mini">Columnas <input type="number" id="moCols" min="1" max="8" value="2"></label>
-          <label class="mini">Filas <input type="number" id="moRows" min="1" max="8" value="2"></label>
-          <label class="mini">Resolución
-            <span class="inline">
-              <input type="number" id="moW" min="320" step="2" value="1920"> ×
-              <input type="number" id="moH" min="240" step="2" value="1080">
-            </span>
-          </label>
+          <label class="muted" style="font-size:11px">Columnas</label>
+          <select id="moCols" class="input small">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+          <label class="muted" style="font-size:11px">Filas</label>
+          <select id="moRows" class="input small">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+          <label class="muted" style="font-size:11px">Resolución</label>
+          <span class="inline">
+            <input type="number" id="moW" class="input small" min="320" step="2" value="1920">
+            <span class="muted">×</span>
+            <input type="number" id="moH" class="input small" min="240" step="2" value="1080">
+          </span>
           <button class="btn ghost" id="moRandom" title="Asigna vídeos aleatorios a las celdas vacías">🎲 Aleatorio</button>
           <button class="btn ghost" id="moBg" title="Elegir el fondo de la composición">Fondo…</button>
           <button class="btn ghost" id="moAddLayer" title="Añadir un elemento libre">+ Capa libre</button>

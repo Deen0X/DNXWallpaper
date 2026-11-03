@@ -1514,9 +1514,9 @@ std::string MosaicWorkspace(const std::string& body) {
     int cols = (int)JsonNumIn(body, 0, "cols", 2);
     int rows = (int)JsonNumIn(body, 0, "rows", 2);
     if (cols < 1) cols = 1;
-    if (cols > 8) cols = 8;
+    if (cols > 5) cols = 5;
     if (rows < 1) rows = 1;
-    if (rows > 8) rows = 8;
+    if (rows > 5) rows = 5;
 
     int W = (int)JsonNumIn(body, 0, "width", 1920);
     int H = (int)JsonNumIn(body, 0, "height", 1080);

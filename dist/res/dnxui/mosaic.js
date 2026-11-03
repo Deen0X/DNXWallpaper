@@ -294,8 +294,8 @@
   function loadProject() {
     return api('/api/mosaic/project').then((p) => {
       if (!p || !p.cells || !p.cells.length) return false;
-      S.cols = Math.max(1, Math.min(8, Number(p.cols) || 2));
-      S.rows = Math.max(1, Math.min(8, Number(p.rows) || 2));
+      S.cols = Math.max(1, Math.min(5, Number(p.cols) || 2));
+      S.rows = Math.max(1, Math.min(5, Number(p.rows) || 2));
       S.w = Number(p.width) || S.w;
       S.h = Number(p.height) || S.h;
       if (p.background) {
@@ -342,8 +342,9 @@
     const n = S.cols * S.rows;
     w.hidden = n <= 4;
     if (n > 4) {
-      w.textContent = `⚠ ${n} celdas: generar el vídeo puede tardar bastante ` +
-        `(se decodifican ${n} vídeos en paralelo).`;
+      const fuerte = n > 9 ? ' Mucho ojo: a partir de 4x4 puede tardar varios minutos.' : '';
+      w.textContent = `⚠ ${n} celdas: se decodifican ${n} vídeos a la vez, ` +
+        `el vídeo tardará bastante en generarse.${fuerte}`;
     }
   }
 
@@ -524,7 +525,7 @@
     render();
 
     $('#moCols').onchange = (e) => {
-      S.cols = Math.max(1, Math.min(8, Number(e.target.value) || 2));
+      S.cols = Math.max(1, Math.min(5, Number(e.target.value) || 2));
       e.target.value = S.cols;
       ensureCells();
       warnIfBig();
@@ -532,7 +533,7 @@
       scheduleSave();
     };
     $('#moRows').onchange = (e) => {
-      S.rows = Math.max(1, Math.min(8, Number(e.target.value) || 2));
+      S.rows = Math.max(1, Math.min(5, Number(e.target.value) || 2));
       e.target.value = S.rows;
       ensureCells();
       warnIfBig();
