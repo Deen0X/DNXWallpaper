@@ -638,3 +638,13 @@ es/config/mosaic.json; **Cargar** lee ese mismo. Al arrancar se
   mosaicos*, o clic derecho sobre la tarjeta. Si el json no tiene `project`
   (mosaicos antiguos) se avisa.
 - Textos de UI: Guardar borrador / Recuperar borrador / Abrir en el editor.
+
+## Mosaico: aspecto de celda (2026-11-03)
+
+- Combo **Aspecto celda**: Libre / 16:9 (defecto) / 21:9 / 3:2 / 4:3 / 1:1 / 9:16.
+- Al cambiar columnas/filas se mantiene el **tamano y aspecto de la celda** y se
+  ajusta el lienzo (crece a lo ancho o a lo alto). Tope 7680x4320: si no cabe,
+  se reduce la celda.
+- El preview usaba width:100% + max-height, asi que aplastaba la rejilla y
+  parecia que el aspecto se deformaba. Ahora layoutStage() fija ancho/alto
+  explicitos respetando la proporcion (y se recalcula al redimensionar).

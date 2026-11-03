@@ -8,6 +8,7 @@
     rows: 2,
     w: 1920,
     h: 1080,
+    aspect: '16:9',  // '' = libre; si no, "16:9", "1:1"...
     bg: { type: 'empty', key: '', color: '', rect: { x: 0, y: 0, w: 1, h: 1 }, fade: 0 },
     cells: [],
     layers: [],
@@ -29,6 +30,57 @@
 
   function typeOf(item) {
     return /image/i.test(String((item && item.type) || '')) ? 'image' : 'video';
+  }
+
+  const ASPECTS = {
+    '': 0,
+    '16:9': 16 / 9,
+    '9:16': 9 / 16,
+    '4:3': 4 / 3,
+    '3:2': 3 / 2,
+    '1:1': 1,
+    '21:9': 21 / 9
+  };
+
+  function ratioOf() {
+    return ASPECTS[S.aspect] || 0;
+  }
+
+  function even(n) {
+    return Math.max(2, Math.round(n / 2) * 2);
+  }
+
+  // Aspecto por defecto según el lienzo actual (para proyectos viejos).
+  function guessAspect(p) {
+    const cols = Math.max(1, Number(p.cols) || S.cols);
+    const rows = Math.max(1, Number(p.rows) || S.rows);
+    const w = Number(p.width) || S.w;
+    const h = Number(p.height) || S.h;
+    if (w <= 0 || h <= 0) return '';
+    const r = (w / cols) / (h / rows);
+    for (const k of Object.keys(ASPECTS)) {
+      if (k && Math.abs(ASPECTS[k] - r) < 0.01) return k;
+    }
+    return '';
+  }
+
+  // Con aspecto fijo, el lienzo no puede pasar de 7680x4320: se reduce la
+  // celda (manteniendo la proporción) hasta que quepa.
+  function fitCanvas() {
+    if (!ratioOf()) return;
+    const maxW = 7680;
+    const maxH = 4320;
+    let cellH = S.h / S.rows;
+    cellH = Math.min(cellH, maxH / S.rows, maxW / (S.cols * ratioOf()));
+    cellH = Math.max(120, Math.floor(cellH / 2) * 2);
+    S.h = even(cellH * S.rows);
+    S.w = even(cellH * ratioOf() * S.cols);
+  }
+
+  function syncSizeInputs() {
+    if ($('#moW')) $('#moW').value = String(S.w);
+    if ($('#moH')) $('#moH').value = String(S.h);
+    if ($('#moAspect')) $('#moAspect').value = S.aspect;
   }
 
   function emptyLayer() {
@@ -100,6 +152,28 @@
       style="${style};${bg}">${inner}${handles}</div>`;
   }
 
+  /**
+   * Ajusta el escenario al hueco disponible SIN romper la proporción del
+   * lienzo: con `max-height` y `width:100%` las celdas se aplastaban (parecía
+   * que la rejilla deformaba el aspecto).
+   */
+  function layoutStage() {
+    const stage = $('#moStage');
+    if (!stage) return;
+    const host = stage.parentElement;
+    const avail = Math.max(240, (host ? host.clientWidth : 900) - 2);
+    const maxH = Math.max(180, Math.round(window.innerHeight * 0.52));
+    const ar = (S.w || 16) / (S.h || 9);
+    let w = avail;
+    let h = w / ar;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ar;
+    }
+    stage.style.width = Math.round(w) + 'px';
+    stage.style.height = Math.round(h) + 'px';
+  }
+
   function render() {
     const stage = $('#moStage');
     if (!stage) return;
@@ -114,6 +188,12 @@
     html += '</div>';
     for (let i = 0; i < S.layers.length; i++) html += layerHtml(S.layers[i], i);
     stage.innerHTML = html;
+    stage.style.aspectRatio = `${S.w} / ${S.h}`;
+    if (typeof ResizeObserver !== 'undefined' && !stage.__ro) {
+      stage.__ro = new ResizeObserver(() => layoutStage());
+      stage.__ro.observe(stage.parentElement || stage);
+    }
+    layoutStage();
   }
 
   // -------------------------------------------------------------- inspector
@@ -302,6 +382,7 @@
   // Aplica un proyecto (guardado o recuperado de un mosaico) al editor.
   function applyProject(p) {
     if (!p || !p.cells || !p.cells.length) return false;
+    S.aspect = guessAspect(p);
     S.cols = Math.max(1, Math.min(5, Number(p.cols) || 2));
     S.rows = Math.max(1, Math.min(5, Number(p.rows) || 2));
     S.w = Number(p.width) || S.w;
@@ -350,8 +431,7 @@
   function syncControls() {
     if ($('#moCols')) $('#moCols').value = String(S.cols);
     if ($('#moRows')) $('#moRows').value = String(S.rows);
-    if ($('#moW')) $('#moW').value = String(S.w);
-    if ($('#moH')) $('#moH').value = String(S.h);
+    syncSizeInputs();
     warnIfBig();
   }
 
@@ -543,31 +623,67 @@
     syncControls();
     render();
 
+    // Columnas/filas: se mantiene el tamaño y el aspecto de la celda, así que
+    // el lienzo crece o mengua en la otra dimensión.
     $('#moCols').onchange = (e) => {
+      const cellH = S.h / S.rows;
       S.cols = Math.max(1, Math.min(5, Number(e.target.value) || 2));
       e.target.value = S.cols;
+      if (ratioOf()) {
+        S.h = even(cellH * S.rows);
+        S.w = even(cellH * ratioOf() * S.cols);
+        fitCanvas();
+      }
       ensureCells();
       warnIfBig();
+      syncSizeInputs();
       render();
       scheduleSave();
     };
     $('#moRows').onchange = (e) => {
+      const cellH = S.h / S.rows;
       S.rows = Math.max(1, Math.min(5, Number(e.target.value) || 2));
       e.target.value = S.rows;
+      if (ratioOf()) {
+        S.h = even(cellH * S.rows);
+        S.w = even(cellH * ratioOf() * S.cols);
+        fitCanvas();
+      }
       ensureCells();
       warnIfBig();
+      syncSizeInputs();
+      render();
+      scheduleSave();
+    };
+    $('#moAspect').onchange = (e) => {
+      S.aspect = e.target.value;
+      const cellH = S.h / S.rows;
+      if (ratioOf()) {
+        S.w = even(cellH * ratioOf() * S.cols);
+        S.h = even(cellH * S.rows);
+        fitCanvas();
+      }
+      syncSizeInputs();
       render();
       scheduleSave();
     };
     $('#moW').onchange = (e) => {
-      S.w = Math.max(320, (Number(e.target.value) || 1920) & ~1);
-      e.target.value = S.w;
+      S.w = even(Math.max(320, Math.min(7680, Number(e.target.value) || 1920)));
+      if (ratioOf()) {
+        S.h = even((S.w / S.cols / ratioOf()) * S.rows);
+        fitCanvas();
+      }
+      syncSizeInputs();
       render();
       scheduleSave();
     };
     $('#moH').onchange = (e) => {
-      S.h = Math.max(240, (Number(e.target.value) || 1080) & ~1);
-      e.target.value = S.h;
+      S.h = even(Math.max(240, Math.min(4320, Number(e.target.value) || 1080)));
+      if (ratioOf()) {
+        S.w = even((S.h / S.rows) * ratioOf() * S.cols);
+        fitCanvas();
+      }
+      syncSizeInputs();
       render();
       scheduleSave();
     };
@@ -653,6 +769,7 @@
     stage.addEventListener('click', onStageClick);
     stage.addEventListener('wheel', onWheel, { passive: false });
     stage.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('resize', () => layoutStage());
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
   }
