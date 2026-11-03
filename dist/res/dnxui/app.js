@@ -452,21 +452,32 @@ function openViewer(key) {
        target="_blank" rel="noopener">Adaptar a dispositivo</a>
   `;
   if (isMosaic && $('#viewerEditMosaic')) {
-    $('#viewerEditMosaic').onclick = () => {
-      $('#viewer').hidden = true;
-      fetch('/api/mosaic/project?key=' + encodeURIComponent(key))
-        .then((r) => r.json())
-        .then((p) => {
-          if (!p || !p.cells) {
-            toast('Este mosaico no tiene proyecto guardado');
-            return;
-          }
+    const btn = $('#viewerEditMosaic');
+    btn.disabled = true;
+    btn.textContent = 'Comprobando composición…';
+    fetch('/api/mosaic/project?key=' + encodeURIComponent(key))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((p) => {
+        if (!p || !p.cells) {
+          btn.disabled = true;
+          btn.textContent = 'Sin composición guardada';
+          btn.title = 'Este mosaico se generó antes de guardar la composición; no se puede reabrir.';
+          return;
+        }
+        btn.disabled = false;
+        btn.textContent = 'Abrir en el editor de mosaicos';
+        btn.title = '';
+        btn.onclick = () => {
+          $('#viewer').hidden = true;
           if (typeof window.mosaicLoadProject === 'function') {
             window.mosaicLoadProject(p);
           }
-        })
-        .catch(() => toast('No se pudo abrir el mosaico'));
-    };
+        };
+      })
+      .catch(() => {
+        btn.disabled = true;
+        btn.textContent = 'Sin composición guardada';
+      });
   }
   $('#viewerToDisplay').onclick = () => {
     $('#viewer').hidden = true;
