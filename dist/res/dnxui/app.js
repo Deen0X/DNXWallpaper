@@ -348,9 +348,10 @@ function renderSources() {
   const providers = (state.providers || []).slice().sort();
   const el = $('#sources');
   if (!el) return;
+  const label = (id) => (state.providerNames && state.providerNames[id]) || id;
   const all = `<button class="chip ${state.source === 'all' ? 'active' : ''}" data-src="all">Todo</button>`;
   el.innerHTML = all + providers.map((p) =>
-    `<button class="chip ${state.source === p ? 'active' : ''}" data-src="${p}">${p}</button>`
+    `<button class="chip ${state.source === p ? 'active' : ''}" data-src="${p}">${label(p)}</button>`
   ).join('');
   $$('#sources .chip').forEach((b) => {
     b.onclick = () => {
@@ -1734,6 +1735,10 @@ function boot() {
     sel.innerHTML = '<option value="">Todos los plugins</option>' +
       list.filter((p) => p.enabled !== false)
         .map((p) => `<option value="${p.id}">${p.name}</option>`).join('');
+    // Nombres legibles para los filtros del catálogo (id -> nombre).
+    state.providerNames = {};
+    list.forEach((p) => { state.providerNames[p.id] = p.name || p.id; });
+    renderSources();
   }).catch(() => {});
   $('#pickerMore').onclick = () => loadPicker(false);
   $('#pickerSearch').oninput = debounce((e) => {
