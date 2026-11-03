@@ -3507,6 +3507,13 @@ bool LoadCatalogSnapshot(const std::wstring& baseDir) {
             it.rating = v.AsNum("rating", -1.0);
             it.sizeBytes = (long long)v.AsNum("sizeBytes", 0);
             it.downloadable = v.AsBool("downloadable", true);
+            // Los generados (mosaico/compuesto) viven sólo en disco: si el
+            // fichero ya no está, no deben quedarse en el catálogo.
+            if (it.provider == "mosaic" || it.provider == "optimized") {
+                std::wstring local = MediaPathForCheck(baseDir, it);
+                if (GetFileAttributesW(local.c_str()) == INVALID_FILE_ATTRIBUTES)
+                    continue;
+            }
             std::wstring local = CachedThumbUrl(baseDir, it);
             if (!local.empty()) {
                 it.staticThumb = ToUtf8(local);

@@ -292,8 +292,8 @@
   }
 
   function loadProject() {
-    api('/api/mosaic/project').then((p) => {
-      if (!p || !p.cells || !p.cells.length) return;
+    return api('/api/mosaic/project').then((p) => {
+      if (!p || !p.cells || !p.cells.length) return false;
       S.cols = Math.max(1, Math.min(8, Number(p.cols) || 2));
       S.rows = Math.max(1, Math.min(8, Number(p.rows) || 2));
       S.w = Number(p.width) || S.w;
@@ -324,7 +324,8 @@
       syncControls();
       render();
       renderInspector();
-    }).catch(() => {});
+      return true;
+    }).catch(() => false);
   }
 
   function syncControls() {
@@ -504,20 +505,21 @@
     if (S.inited) return;
     S.inited = true;
     ensureCells();
-    // Resolución por defecto: la del monitor principal.
-    api('/api/monitors').then((list) => {
-      const arr = Array.isArray(list) ? list : (list.monitors || []);
-      const m = arr.find((x) => x.primary) || arr[0];
-      if (m && !pendingProject) {
-        S.w = m.width;
-        S.h = m.height;
-        syncControls();
-        render();
-      }
-    }).catch(() => {});
-    let pendingProject = true;
-    loadProject();
-    pendingProject = false;
+    // Si hay proyecto guardado se recupera; si no, resolución del monitor
+    // principal por defecto.
+    loadProject().then((loaded) => {
+      if (loaded) return;
+      api('/api/monitors').then((list) => {
+        const arr = Array.isArray(list) ? list : (list.monitors || []);
+        const m = arr.find((x) => x.primary) || arr[0];
+        if (m) {
+          S.w = m.width;
+          S.h = m.height;
+          syncControls();
+          render();
+        }
+      }).catch(() => {});
+    });
     syncControls();
     render();
 
