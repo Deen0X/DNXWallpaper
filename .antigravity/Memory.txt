@@ -648,3 +648,14 @@ es/config/mosaic.json; **Cargar** lee ese mismo. Al arrancar se
 - El preview usaba width:100% + max-height, asi que aplastaba la rejilla y
   parecia que el aspecto se deformaba. Ahora layoutStage() fija ancho/alto
   explicitos respetando la proporcion (y se recalcula al redimensionar).
+
+## Mosaico: el aspecto es del LIENZO (2026-11-03, correccion)
+
+- El combo **Aspecto lienzo** (Libre / 16:9 / 21:9 / 3:2 / 4:3 / 1:1 / 9:16)
+  define el tamano del **video final**. Al cambiarlo se ajusta el lienzo
+  (mantiene la altura: 16:9 -> 1080p = 1920x1080; 1:1 = 1080x1080).
+- **Filas y columnas solo dividen** ese lienzo: NO lo agrandan. Una celda puede
+  quedar con cualquier proporcion; el contenido se ajusta con cover/zoom/paneo.
+- El preview usa `layoutStage()` (ancho/alto explicitos) porque con
+  `width:100%` + `max-height` la rejilla se aplastaba.
+- Tope del lienzo: 7680x4320 (si se pasa, se reduce manteniendo la proporcion).

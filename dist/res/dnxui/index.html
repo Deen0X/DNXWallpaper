@@ -206,8 +206,8 @@
             <option value="4">4</option>
             <option value="5">5</option>
           </select>
-          <label class="muted" style="font-size:11px">Aspecto celda</label>
-          <select id="moAspect" class="input small" title="Forma de cada celda; al cambiar columnas/filas el lienzo se ajusta para mantenerla">
+          <label class="muted" style="font-size:11px">Aspecto lienzo</label>
+          <select id="moAspect" class="input small" title="Proporción del vídeo final. Las filas y columnas solo dividen ese lienzo.">
             <option value="">Libre</option>
             <option value="16:9" selected>16:9</option>
             <option value="21:9">21:9</option>
@@ -227,7 +227,7 @@
           <button class="btn ghost" id="moAddLayer" title="Añadir un elemento libre">+ Capa libre</button>
         </div>
         <p class="muted" id="moHint" style="font-size:11px">
-          Capas: fondo (abajo), cuadrícula y elementos libres (arriba). El aspecto de celda se mantiene al cambiar columnas/filas (el lienzo se ajusta). Rueda = zoom; botón central = panear;
+          Capas: fondo (abajo), cuadrícula y elementos libres (arriba). El aspecto es el del lienzo (el vídeo final); filas y columnas lo dividen. Rueda = zoom; botón central = panear;
           en una capa libre, arrastra para mover y usa los tiradores para tamaño y rotación.
         </p>
         <p class="warn" id="moWarn" hidden></p>

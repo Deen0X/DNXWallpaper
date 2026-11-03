@@ -57,24 +57,28 @@
     const w = Number(p.width) || S.w;
     const h = Number(p.height) || S.h;
     if (w <= 0 || h <= 0) return '';
-    const r = (w / cols) / (h / rows);
+    const r = w / h;
     for (const k of Object.keys(ASPECTS)) {
       if (k && Math.abs(ASPECTS[k] - r) < 0.01) return k;
     }
     return '';
   }
 
-  // Con aspecto fijo, el lienzo no puede pasar de 7680x4320: se reduce la
-  // celda (manteniendo la proporción) hasta que quepa.
+  // El lienzo no puede pasar de 7680x4320; si se pasa, se reduce manteniendo
+  // la proporción elegida.
   function fitCanvas() {
-    if (!ratioOf()) return;
     const maxW = 7680;
     const maxH = 4320;
-    let cellH = S.h / S.rows;
-    cellH = Math.min(cellH, maxH / S.rows, maxW / (S.cols * ratioOf()));
-    cellH = Math.max(120, Math.floor(cellH / 2) * 2);
-    S.h = even(cellH * S.rows);
-    S.w = even(cellH * ratioOf() * S.cols);
+    if (S.w > maxW) {
+      const k = maxW / S.w;
+      S.w = even(maxW);
+      S.h = even(S.h * k);
+    }
+    if (S.h > maxH) {
+      const k = maxH / S.h;
+      S.h = even(maxH);
+      S.w = even(S.w * k);
+    }
   }
 
   function syncSizeInputs() {
@@ -623,44 +627,29 @@
     syncControls();
     render();
 
-    // Columnas/filas: se mantiene el tamaño y el aspecto de la celda, así que
-    // el lienzo crece o mengua en la otra dimensión.
+    // Filas y columnas SOLO dividen el lienzo: no cambian su tamaño.
     $('#moCols').onchange = (e) => {
-      const cellH = S.h / S.rows;
       S.cols = Math.max(1, Math.min(5, Number(e.target.value) || 2));
       e.target.value = S.cols;
-      if (ratioOf()) {
-        S.h = even(cellH * S.rows);
-        S.w = even(cellH * ratioOf() * S.cols);
-        fitCanvas();
-      }
       ensureCells();
       warnIfBig();
-      syncSizeInputs();
       render();
       scheduleSave();
     };
     $('#moRows').onchange = (e) => {
-      const cellH = S.h / S.rows;
       S.rows = Math.max(1, Math.min(5, Number(e.target.value) || 2));
       e.target.value = S.rows;
-      if (ratioOf()) {
-        S.h = even(cellH * S.rows);
-        S.w = even(cellH * ratioOf() * S.cols);
-        fitCanvas();
-      }
       ensureCells();
       warnIfBig();
-      syncSizeInputs();
       render();
       scheduleSave();
     };
+    // El aspecto es el del lienzo: al cambiarlo se ajusta el tamaño del vídeo
+    // (manteniendo la altura) y las celdas lo reparten.
     $('#moAspect').onchange = (e) => {
       S.aspect = e.target.value;
-      const cellH = S.h / S.rows;
       if (ratioOf()) {
-        S.w = even(cellH * ratioOf() * S.cols);
-        S.h = even(cellH * S.rows);
+        S.w = even(S.h * ratioOf());
         fitCanvas();
       }
       syncSizeInputs();
@@ -669,20 +658,16 @@
     };
     $('#moW').onchange = (e) => {
       S.w = even(Math.max(320, Math.min(7680, Number(e.target.value) || 1920)));
-      if (ratioOf()) {
-        S.h = even((S.w / S.cols / ratioOf()) * S.rows);
-        fitCanvas();
-      }
+      if (ratioOf()) S.h = even(S.w / ratioOf());
+      fitCanvas();
       syncSizeInputs();
       render();
       scheduleSave();
     };
     $('#moH').onchange = (e) => {
       S.h = even(Math.max(240, Math.min(4320, Number(e.target.value) || 1080)));
-      if (ratioOf()) {
-        S.w = even((S.h / S.rows) * ratioOf() * S.cols);
-        fitCanvas();
-      }
+      if (ratioOf()) S.w = even(S.h * ratioOf());
+      fitCanvas();
       syncSizeInputs();
       render();
       scheduleSave();
