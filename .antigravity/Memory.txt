@@ -590,3 +590,16 @@
   - `JsonObjectsInArray` debe parar en el `]` del array; si no, `layers` se
     colaba como celdas.
   - `JsonEsc` debe escapar caracteres de control (el stderr de ffmpeg los trae).
+
+## Mosaicos: carpeta y proveedor (2026-11-03)
+
+- Los mosaicos se guardan en **res\\mosaics\\<id>.mp4** (+ <id>.json con
+  titulo, ancho, alto y segundos).
+- Proveedor propio **mosaics** (plugin dist/plugins/mosaics): lista esa
+  carpeta, asi aparecen en el catalogo aunque se pierda el snapshot. Las claves
+  son mosaics:<stem> (coinciden con el registro inmediato tras generar).
+- 
+es/mosaics es dato de usuario: esta en .gitignore y excluida del zip de
+  release.
+- La generacion informa en /api/progress con stage: descargando medios
+  (percent -1) mientras baja los que falten; la UI pinta barra indeterminada.

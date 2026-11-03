@@ -220,8 +220,16 @@
     progressTimer = setInterval(() => {
       api('/api/progress').then((p) => {
         if (!p || !p.active) return;
-        const pc = Math.max(1, Math.min(99, p.percent || 0));
-        if (fill) fill.style.width = pc + '%';
+        if (p.stage === 'descargando medios') {
+          status.textContent = 'Descargando los vídeos que faltan…';
+          if (fill) fill.classList.add('indet');
+          return;
+        }
+        const pc = (typeof p.percent === 'number' && p.percent >= 0) ? p.percent : 0;
+        if (fill) {
+          fill.classList.remove('indet');
+          fill.style.width = Math.max(1, Math.min(99, pc)) + '%';
+        }
         status.textContent = 'Generando el mosaico… ' + pc + ' %';
       }).catch(() => {});
     }, 400);

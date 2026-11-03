@@ -41,7 +41,7 @@ $xdPaths = @(
   "cef-cache", "DawnCache", "GPUCache", "ShaderCache", "GrShaderCache",
   "GraphiteDawnCache", "ui", "docs",
   "res\providers", "res\mobile", "res\uploads",
-  "res\optimized", "res\projects", "res\config"
+  "res\optimized", "res\projects", "res\config", "res\mosaics"
 ) | ForEach-Object { Join-Path $Dist $_ }
 
 # Ficheros que no van: logs, estado de usuario, binarios no usados y

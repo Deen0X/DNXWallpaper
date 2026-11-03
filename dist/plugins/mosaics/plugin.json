@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "id": "mosaics",
+  "name": "Mosaicos",
+  "version": "1.0.0",
+  "description": "Los mosaicos generados con el editor de mosaicos.",
+  "author": "DNXWallpaper",
+  "license": "personal-use",
+  "runtime": "python",
+  "entry": "main.py",
+  "capabilities": ["health", "list", "detail"],
+  "mediaTypes": ["video", "image"],
+  "requiresAuth": false,
+  "attribution": "Mosaicos generados por DNXWallpaper"
+}

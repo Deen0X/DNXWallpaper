@@ -38,6 +38,12 @@ Windows y Android publicados y funcionando:
       - Fondo a pantalla completa (vídeo/imagen/color) y capas libres sin
         límite: mover, redimensionar, rotar y zoom/paneo propio.
       - Proyecto guardado en `res/config/mosaic.json` y recuperable.
+      - Salida en `res\mosaics\<id>.mp4` (+ ficha `.json`) y proveedor propio
+        **Mosaicos** (`dist/plugins/mosaics`) para verlos siempre en el catálogo.
+      - Controles con el estilo de la app: combos 1-5 para filas/columnas y
+        fundido; aviso desde 5 celdas y aviso fuerte desde 4x4.
+      - Mientras descarga medios, `/api/progress` informa (`descargando medios`)
+        y la UI muestra barra indeterminada.
       Verificado: 2×2 con fondo visible en la celda vacía, 3 vídeos con
       fundido, 1 color y una capa rotada; 1920×1080, 15 s.
 - [ ] **Mosaico — pendiente menor**: arrastrar/redimensionar capas en la UI

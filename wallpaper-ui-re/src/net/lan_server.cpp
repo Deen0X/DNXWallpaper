@@ -1571,6 +1571,8 @@ std::string MosaicWorkspace(const std::string& body) {
     }
 
     // Resolver medios. `dur` = la más larga de las capas con vídeo.
+    // Descargar los que falten puede tardar: se informa en /api/progress.
+    SetProgress(true, -1, "descargando medios");
     double dur = 0;
     int inputs = 0;
     int content = 0;
@@ -1660,7 +1662,7 @@ std::string MosaicWorkspace(const std::string& body) {
             std::string hex = L.color;
             if (!hex.empty() && hex[0] == '#') hex = hex.substr(1);
             if (hex.size() != 6) return false;
-            filter += ";[c" + std::to_string(tagId) + "]color=c=0x" + hex +
+            filter += ";color=c=0x" + hex +
                       ":s=" + std::to_string(L.w) + "x" + std::to_string(L.h) +
                       ":r=30:d=" + std::to_string(dur) +
                       ",setpts=PTS-STARTPTS[" + tag + "]";
@@ -1834,9 +1836,8 @@ std::string MosaicWorkspace(const std::string& body) {
         }
     }
 
-    const std::wstring dir = g_baseDir + L"\\res\\providers\\mosaic\\media";
-    CreateDirectoryW((g_baseDir + L"\\res\\providers").c_str(), nullptr);
-    CreateDirectoryW((g_baseDir + L"\\res\\providers\\mosaic").c_str(), nullptr);
+    const std::wstring dir = g_baseDir + L"\\res\\mosaics";
+    CreateDirectoryW((g_baseDir + L"\\res").c_str(), nullptr);
     CreateDirectoryW(dir.c_str(), nullptr);
     char idb[64];
     sprintf_s(idb, "ms%08x", (unsigned)GetTickCount());
@@ -1883,9 +1884,9 @@ std::string MosaicWorkspace(const std::string& body) {
     }
 
     RemoteItem it;
-    it.provider = "mosaic";
+    it.provider = "mosaics";
     it.id = idb;
-    it.key = "mosaic:" + it.id;
+    it.key = "mosaics:" + it.id;
     it.title = "Mosaico " + std::to_string(cols) + "x" + std::to_string(rows);
     it.mediaType = "video";
     it.animated = true;
@@ -1894,6 +1895,21 @@ std::string MosaicWorkspace(const std::string& body) {
     it.tags = "mosaico,escritorio";
     it.width = W;
     it.height = H;
+    // Ficha junto al vídeo: el plugin "mosaics" la usa para el título.
+    {
+        char meta[256];
+        sprintf_s(meta,
+                  "{\"title\":\"Mosaico %dx%d\",\"width\":%d,\"height\":%d,"
+                  "\"seconds\":%d}",
+                  cols, rows, W, H, (int)dur);
+        const std::wstring jf = dir + L"\\" + Utf8ToWide(idb) + L".json";
+        FILE* mf = nullptr;
+        _wfopen_s(&mf, jf.c_str(), L"wb");
+        if (mf) {
+            fwrite(meta, 1, strlen(meta), mf);
+            fclose(mf);
+        }
+    }
     {
         SYSTEMTIME st{};
         GetSystemTime(&st);
