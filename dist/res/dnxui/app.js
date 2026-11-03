@@ -444,11 +444,30 @@ function openViewer(key) {
   if (it.sizeBytes) bits.push(`<span>${humanBytes(it.sizeBytes)}</span>`);
   $('#viewerMeta').innerHTML = bits.join('');
 
+  const isMosaic = key.indexOf('mosaics:') === 0;
   $('#viewerActions').innerHTML = `
     <button class="btn" id="viewerToDisplay">Usar en una pantalla…</button>
+    ${isMosaic ? '<button class="btn ghost" id="viewerEditMosaic">Abrir en el editor de mosaicos</button>' : ''}
     <a class="btn ghost" href="/editor/?file=${encodeURIComponent(key)}"
        target="_blank" rel="noopener">Adaptar a dispositivo</a>
   `;
+  if (isMosaic && $('#viewerEditMosaic')) {
+    $('#viewerEditMosaic').onclick = () => {
+      $('#viewer').hidden = true;
+      fetch('/api/mosaic/project?key=' + encodeURIComponent(key))
+        .then((r) => r.json())
+        .then((p) => {
+          if (!p || !p.cells) {
+            toast('Este mosaico no tiene proyecto guardado');
+            return;
+          }
+          if (typeof window.mosaicLoadProject === 'function') {
+            window.mosaicLoadProject(p);
+          }
+        })
+        .catch(() => toast('No se pudo abrir el mosaico'));
+    };
+  }
   $('#viewerToDisplay').onclick = () => {
     $('#viewer').hidden = true;
     openPicker('Wallpaper para la pantalla', (item) => setPending(item, 0));

@@ -587,8 +587,8 @@
     };
     $('#moLoad').onclick = () => {
       api('/api/mosaic/project').then((p) => {
-        if (applyProject(p)) toast('Proyecto cargado');
-        else toast('No hay proyecto guardado');
+        if (applyProject(p)) toast('Mosaico abierto en el editor');
+        else toast('No hay borrador guardado');
       }).catch(() => toast('No se pudo cargar el proyecto'));
     };
     $('#moGen').onclick = generate;
@@ -597,7 +597,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload())
-      }).then(() => toast('Proyecto guardado')).catch(() => toast('No se pudo guardar'));
+      }).then(() => toast('Borrador guardado')).catch(() => toast('No se pudo guardar'));
     };
     $('#moPick').onclick = () => {
       if (!S.sel) return;
@@ -672,7 +672,7 @@
     menu.style.left = x + 'px';
     menu.style.top = y + 'px';
     menu.innerHTML =
-      '<button data-act="load">Cargar proyecto en el editor</button>' +
+      '<button data-act="load">Abrir en el editor de mosaicos</button>' +
       '<button data-act="delete" class="danger">Eliminar mosaico</button>';
     document.body.appendChild(menu);
     menu.querySelectorAll('button').forEach((b) => {
@@ -690,7 +690,7 @@
               if (applyProject(p)) {
                 const nav = document.querySelector('[data-sec=mosaic]');
                 if (nav) nav.click();
-                toast('Proyecto cargado');
+                toast('Mosaico abierto en el editor');
               }
             })
             .catch(() => toast('No se pudo cargar el proyecto'));
@@ -729,6 +729,14 @@
   window.addEventListener('scroll', closeMenu, true);
 
   window.mosaicInit = init;
+  // Abrir un mosaico guardado en el editor (desde la ficha del catálogo).
+  window.mosaicLoadProject = (p) => {
+    if (!applyProject(p)) return false;
+    const nav = document.querySelector('[data-sec=mosaic]');
+    if (nav) nav.click();
+    toast('Mosaico abierto en el editor');
+    return true;
+  };
   document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('sec-mosaic')) init();
   });
