@@ -42,9 +42,11 @@ Windows y Android publicados y funcionando:
       antes de rellenarla; con el escaneo en paralelo otro hilo leía vacío y el
       plugin "desaparecía". Ahora se rellena bajo cerrojo (posible causa de los
       fallos intermitentes de plugins).
-- [ ] **Worker Python persistente — plugins**: `serve` en `dnxlib.run()` y en
-      `local/main.py`, y `"protocol": 3` en los 10 `plugin.json`. Va en el chat
-      de plugins; prompt entregado.
+- [x] **Worker Python persistente — plugins**: `serve` en `dnxlib.run()` y en
+      `local/main.py`, `"protocol": 3` y version 3.0.0 en los 10 `plugin.json`.
+      Entregado por el chat de plugins; probado en la app.
+- [x] **Medición**: barajar 5,8 s → **4,1-4,4 s**; 10 workers estables (se
+      reutilizan, no crecen) y ~35 MB por proceso en reposo.
 - [ ] **Zoom/paneo reales en el motor**: hoy el encuadre manual se resuelve
       componiendo con ffmpeg; con asignación por monitor se puede hacer en la
       celda (el shader ya tiene `g_Crop`).

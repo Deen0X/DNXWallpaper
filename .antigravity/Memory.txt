@@ -545,3 +545,17 @@
   intermitentes de plugins.
 - **Pendiente**: los plugins aún no implementan `serve`; el host funciona en
   modo un-uso hasta que declaren `protocol: 3`.
+
+## Worker: resultados y notas (2026-11-03)
+
+- Plugins v3.0.0 con `serve` entregados por el chat de plugins (dnxlib + local).
+- Medición en esta máquina: barajar (`/api/library/randomize`) 5,8 s con
+  procesos de un solo uso -> **4,1-4,4 s** con workers (3 ejecuciones).
+- 10 workers (uno por plugin), ~35 MB cada uno en reposo. Se reutilizan: el
+  número no crece entre llamadas. Mueren con la app (job object +
+  `StopPluginWorkers`).
+- Cuidado al medir: si quedan **instancias viejas de la UI** vivas (reinicios
+  de pruebas), aparecen 10 workers por instancia y los tiempos se mezclan.
+  Matar `DNXWallpaper*` antes de medir.
+- `local` responde `items:[]` si su `config.json` no tiene carpetas válidas;
+  el worker no cambia eso.
